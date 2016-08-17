@@ -95,69 +95,66 @@ class ingress
         }
     }
     //给萌新发消息
-    public function send_msg_new_agent()
+    public function auto_send_msg_new_agent()
     {
         $msg = $this->get_msg();
-        if ($msg) {
-            $arr = json_decode($msg, true);
-            if (!empty($arr['result']) && is_array($arr['result'])) {
-                $agents = '';
-                $values = array();
-                foreach ($arr['result'] as $value) {
-                    if ($agent = $this->check_new_agent($value[2]['plext']['text'])) {
-                        $values[] = '("' . $agent . '",' . time() . ')';
-                        $agents .= '@' . $agent . ' ';
-                    }
-                }
-                if ($agents != '') {
-                    if (($this->send_msg($agents . ' ' . $this->rand_msg())) == 'success') {
-                        $sql = 'INSERT INTO `user` (`agent`, `createtime`) VALUES ' . implode(', ', $values);
-                        if ($this->sqllite->exec($sql)) {
-                            return 'message send success,Info storage success';
-                        } else {
-                            return 'message send success,Info storage error';
-                        }
-                    } else {
-                        return 'message send error';
-                    }
-                } else {
-                    return 'not new agent';
-                }
-            } else {
-                return 'not new message';
-            }
-        } else {
+        if (!$msg) {
             return 'get message error';
+        }
+        $arr = json_decode($msg, true);
+        if (!$arr) {
+            return 'message decode error';
+        }
+        if (empty($arr['result']) || !is_array($arr['result'])) {
+            return 'not new message';
+        }
+        $agents = '';
+        $values = array();
+        foreach ($arr['result'] as $value) {
+            if ($agent = $this->check_new_agent($value[2]['plext']['text'])) {
+                $values[] = '("' . $agent . '",' . time() . ')';
+                $agents .= '@' . $agent . ' ';
+            }
+        }
+        if ($agents == '') {
+            return 'not new agent';
+
+        }
+        if (($this->send_msg($agents . ' ' . $this->rand_msg())) != 'success') {
+            return 'message send error';
+        }
+        $sql = 'INSERT INTO `user` (`agent`, `createtime`) VALUES ' . implode(', ', $values);
+        if ($this->sqllite->exec($sql)) {
+            return 'message send success,Info storage success';
+        } else {
+            return 'message send success,Info storage error';
         }
     }
     //是不是萌新
     private function check_new_agent($msg = '')
     {
         if (preg_match('/\[secure\]\s+(\w+):\s+has completed training\.?/sim', $msg, $match)) {
-            if (count($match) == 2) {
-                $sql = 'SELECT COUNT(`id`) FROM `user` WHERE `agent`="' . $match[1] . '"';
-                if ($this->sqllite->querySingle($sql) >= 1) {
-                    return false;
-                } else {
-                    return $match[1];
-                }
-            } else {
+            if (count($match) != 2) {
                 return false;
             }
-        } else if (preg_match('/\[secure\]\s(\w+):\s+.*/sim', $msg, $match)) {
-            if (count($match) == 2) {
-                if (preg_match('/(我是萌新|新人求带|新人求罩|大佬们求带|求组织|带带我)/sim', $match[0])) {
-                    $sql = 'SELECT COUNT(`id`) FROM `user` WHERE `agent`="' . $match[1] . '"';
-                    if ($this->sqllite->querySingle($sql) >= 1) {
-                        return false;
-                    } else {
-                        return $match[1];
-                    }
-                } else {
-                    return false;
-                }
-            } else {
+            $sql = 'SELECT COUNT(`id`) FROM `user` WHERE `agent`="' . $match[1] . '"';
+            if ($this->sqllite->querySingle($sql) >= 1) {
                 return false;
+            } else {
+                return $match[1];
+            }
+        } else if (preg_match('/\[secure\]\s(\w+):\s+.*/sim', $msg, $match)) {
+            if (count($match) != 2) {
+                return false;
+            }
+            if (!preg_match('/(我是萌新|新人求带|新人求罩|大佬们求带|求组织|带带我)/sim', $match[0])) {
+                return false;
+            }
+            $sql = 'SELECT COUNT(`id`) FROM `user` WHERE `agent`="' . $match[1] . '"';
+            if ($this->sqllite->querySingle($sql) > 0) {
+                return false;
+            } else {
+                return $match[1];
             }
         } else {
             return false;
