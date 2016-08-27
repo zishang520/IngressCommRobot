@@ -15,6 +15,8 @@ class ingress
     private $sqllite;
     // 配置文件
     private $conf;
+    // cookie 文件名
+    private $cookie_file = 'cookie.txt';
     //构造函数
     public function __construct($mintime = 10)
     {
@@ -26,40 +28,59 @@ class ingress
         $this->check_conf();
         $this->mintime = $mintime;
         $this->ssl = true;
-        $this->header = [
-            'accept:' => 'accept:*/*',
-            'accept-language' => 'accept-language:zh-CN,zh;q=0.8',
-            'cookie' => 'cookie:' . $this->conf['cookie'],
-            'origin' => 'origin:https://www.ingress.com',
-            'referer' => 'referer:https://www.ingress.com/intel',
-            'User-Agent' => $this->conf['UA'],
-            'x-csrftoken' => 'x-csrftoken:' . $this->conf['x-csrftoken'],
-        ];
+        $this->header = array(
+            'Cache-Control' => 'Cache-Control: max-age=0',
+            'User-Agent' => 'User-Agent: '.$this->conf['UA'],
+            'Upgrade-Insecure-Requests' => '1',
+            'Accept:' => 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language' => 'Accept-Language: zh-CN,zh;q=0.8',
+            'Origin' => 'Origin: https://www.ingress.com',
+            'Referer' => 'Referer: https://www.ingress.com/intel',
+            'X-CSRFToken' => 'X-CSRFToken: ' . $this->conf['x-csrftoken'],
+        );
     }
     //请求
-    protected function curl($url, $post = null, $header = array())
+    protected function curl($url, $post = null, $header = array(), $cookie = true)
     {
         $header = array_merge_recursive($this->header, $header);
         $data = array(); //初始化空数组
         $ch = curl_init(); //初始化curl
-        curl_setopt($ch, CURLOPT_URL, $url); //需要请求的地址
-        // curl_setopt($ch, CURLOPT_PROXY, 'http://127.0.0.1:8080');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $header); //设置header头
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30); //设置超时时间
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); //设定是否显示头信息
-        curl_setopt($ch, CURLOPT_HEADER, false); //设定是否输出页面内容
-        curl_setopt($ch, CURLOPT_NOBODY, false); //是否设置为不显示html的body
+        curl_setopt_array($ch,
+            array(
+                CURLOPT_URL => $url, //需要请求的地址
+                // CURLOPT_PROXY => 'http://127.0.0.1:8080', // 不支持https
+                CURLOPT_HTTPHEADER => $header, //设置header头
+                CURLOPT_AUTOREFERER => true, // 自动设置跳转地址
+                CURLOPT_FOLLOWLOCATION => true, //开启重定向
+                CURLOPT_COOKIE => $this->conf['cookie'],//设置cookie
+                CURLOPT_TIMEOUT => 30, //设置超时时间
+                CURLOPT_RETURNTRANSFER => true, //设定是否显示头信息
+                CURLOPT_HEADER => false, //设定是否输出页面内容
+                CURLOPT_NOBODY => false, //是否设置为不显示html的body
+            )
+        );
         if (!empty($post)) {
             $post = is_array($post) ? http_build_query($post) : $post;
-            curl_setopt($ch, CURLOPT_POST, true); //post提交方式
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+            curl_setopt_array($ch,
+                array(
+                    CURLOPT_POST => true, //post提交方式
+                    CURLOPT_POSTFIELDS => $post,
+                )
+            );
         }
         if ($this->ssl) {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true); // 只信任CA颁布的证书
-            curl_setopt($ch, CURLOPT_CAINFO, __DIR__ . '/cacert.pem'); // CA根证书（用来验证的网站证书是否是CA颁布）
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2); // 检查证书中是否设置域名，并且是否与提供的主机名匹配
+            curl_setopt_array($ch,
+                array(
+                    CURLOPT_SSL_VERIFYPEER => true, // 只信任CA颁布的证书
+                    CURLOPT_CAINFO => __DIR__ . '/cacert.pem', // CA根证书（用来验证的网站证书是否是CA颁布）
+                    CURLOPT_SSL_VERIFYHOST => 2,
+                )
+            ); // 检查证书中是否设置域名，并且是否与提供的主机名匹配
         }
-        // curl_setopt($ch, CURLOPT_COOKIEFILE, $cookie_jar); // use cookie
+        if ($cookie) {
+            curl_setopt($ch, CURLOPT_COOKIEJAR, $this->cookie_file); //存储cookie信息
+            curl_setopt($ch, CURLOPT_COOKIEFILE, $this->cookie_file); // use cookie
+        }
         $data['info'] = curl_exec($ch);
         $data['status'] = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
@@ -217,9 +238,17 @@ class ingress
             exit('Conf.json lngE6 Not Set');
         }
     }
+    public function test()
+    {
+        $status = $this->curl('https://www.ingress.com/intel', null, array(), true);
+        return $status;
+    }
     //析构函数
     public function __destruct()
     {
         $this->sqllite->close();
     }
 }
+$a = new ingress(16);
+print_r($a->test());
+// echo $a->auto_send_msg_new_agent();
