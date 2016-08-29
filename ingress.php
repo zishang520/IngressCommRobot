@@ -238,17 +238,9 @@ class ingress
             exit('Conf.json lngE6 Not Set');
         }
     }
-    public function test()
-    {
-        $status = $this->curl('https://www.ingress.com/intel', null, array(), true);
-        return $status;
-    }
     //析构函数
     public function __destruct()
     {
         $this->sqllite->close();
     }
 }
-$a = new ingress(16);
-print_r($a->test());
-// echo $a->auto_send_msg_new_agent();
