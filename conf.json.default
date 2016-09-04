@@ -1,20 +1,20 @@
 {
-    // 你的Cokie
+    // Your Cookie
     "cookie": "",
-    // 请求头部得csrf令牌，和cookie中的一至
+    // Token request header csrf
     "x-csrftoken": "",
-    // 浏览器信息
+    // Browser UA
     "UA": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36",
-    // 发送消息的v字段
+    // Verify the sender information fields 'v'
     "v": "",
-    // 以下默认成都地区
-    "minLatE6": 30576898,//最小纬度
-    "minLngE6": 103827871,//最新经度
-    "maxLatE6": 30724577,//最大经度
-    "maxLngE6": 104256338,//最大纬度
-    "latE6": 30650766,//消息发送得纬度
-    "lngE6": 104042104,//消息发送得经度
-    // '发送消息，为空则使用系统默认
+    // The following default Chengdu
+    "minLatE6": 30576898,//Minimum latitude
+    "minLngE6": 103827871,//Latest longitude
+    "maxLatE6": 30724577,//maximum longitude
+    "maxLngE6": 104256338,//maximum latitude
+    "latE6": 30650766,//Messaging latitude
+    "lngE6": 104042104,//Messaging Longitude
+    // Send a message, the system default is empty
     "rand_msg": [
         " 欢迎新人，快来加入川渝蓝军群(群号126821831)，发现精彩内容。",
         " 欢迎选择加入抵抗军·川渝蓝军群(群号126821831)，一起为建设社会主义社会、实现人类的全面自由发展而奋斗吧",
