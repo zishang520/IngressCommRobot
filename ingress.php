@@ -16,7 +16,7 @@ class ingress
     // 配置文件
     private $conf;
     // cookie 文件名
-    private $cookie_file = 'cookie.txt';
+    private $cookie_file = 'cookie.ini';
     //构造函数
     public function __construct($mintime = 10)
     {
@@ -238,17 +238,9 @@ class ingress
             exit('Conf.json lngE6 Not Set');
         }
     }
-    public function test()
-    {
-        $status = $this->curl('https://www.ingress.com/intel', null, array(), true);
-        return $status;
-    }
     //析构函数
     public function __destruct()
     {
         $this->sqllite->close();
     }
 }
-$a = new ingress(16);
-print_r($a->test());
-// echo $a->auto_send_msg_new_agent();
