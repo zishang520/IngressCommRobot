@@ -23,7 +23,7 @@ class ingress
         $this->sqllite = new SQLite3('agent.db', SQLITE3_OPEN_READWRITE | SQLITE3_OPEN_CREATE);
         file_exists('conf.json') || exit('conf.json Not Found');
         $conf = file_get_contents('conf.json');
-        $conf = json_decode(preg_replace('/(\r|\n|^\s*|\/\/.+[^"\'])*/im', '', $conf), true);
+        $conf = json_decode(preg_replace('/((\r|\n|^\s*)+\/\/.+[^"\']|\r|\n|^\s+)*/im', '', $conf), true);
         $this->conf = $conf ? $conf : array();
         $this->check_conf();
         $this->mintime = $mintime;
@@ -114,6 +114,18 @@ class ingress
         } else {
             return $arr['result'];
         }
+    }
+    // 自动兑换
+    public function auto_passcode($code)
+    {
+        $url = 'https://www.ingress.com/r/redeemReward';
+        $header['content-type'] = 'content-type:application/json; charset=UTF-8';
+        $data = '{"passcode":"'.$code.'","v":"'.$this->conf['v'].'"}';
+        $info = $this->curl($url, $data, $header);
+        if ($info['status'] != 200) {
+            return false;
+        }
+        return json_decode($info['info'], true);
     }
     //给萌新发消息
     public function auto_send_msg_new_agent()
@@ -244,3 +256,4 @@ class ingress
         $this->sqllite->close();
     }
 }
+new ingress;
