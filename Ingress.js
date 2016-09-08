@@ -17,7 +17,7 @@ function Ingress(mintime) {
     }
     var data = fs.readFileSync(conf, "utf-8");
     try {
-        this.conf = JSON.parse(data.replace(/((\r|\n|^\s*)+\/\/.+[^"\']|\r|\n|^\s+)*/img, ''));
+        this.conf = JSON.parse(data.replace(/((\r|\n|^\s*)+(\/\/[^\n]*|(\/\*([^\*^\/]*|[\*^\/\*]*|[^\**\/]*)*\*\/)*)|\r|\n|^\s+|\s+$)*/img, ''));
     } catch (e) {
         throw new Error(e);
     }

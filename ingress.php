@@ -23,7 +23,7 @@ class ingress
         $this->sqllite = new SQLite3('agent.db', SQLITE3_OPEN_READWRITE | SQLITE3_OPEN_CREATE);
         file_exists('conf.json') || exit('conf.json Not Found');
         $conf = file_get_contents('conf.json');
-        $conf = json_decode(preg_replace('/((\r|\n|^\s*)+\/\/.+[^"\']|\r|\n|^\s+)*/im', '', $conf), true);
+        $conf = json_decode(preg_replace('/((\r|\n|^\s*)+(\/\/[^\n]*|(\/\*([^\*^\/]*|[\*^\/\*]*|[^\**\/]*)*\*\/)*)|\r|\n|^\s+|\s+$)*/im', '', $conf), true);
         $this->conf = $conf ? $conf : array();
         $this->check_conf();
         $this->mintime = $mintime;
@@ -256,4 +256,3 @@ class ingress
         $this->sqllite->close();
     }
 }
-new ingress;
