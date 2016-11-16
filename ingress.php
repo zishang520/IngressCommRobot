@@ -113,7 +113,7 @@ class ingress
     {
         $url = 'https://www.ingress.com/r/getPlexts';
         $header['content-type'] = 'content-type:application/json; charset=UTF-8';
-        $data = '{"minLatE6":' . $this->conf['minLatE6'] . ',"minLngE6":' . $this->conf['minLngE6'] . ',"maxLatE6":' . $this->conf['maxLatE6'] . ',"maxLngE6":' . $this->conf['maxLngE6'] . ',"minTimestampMs":' . gmp_strval(intval(microtime(true) * 1000 - 60000 * $this->mintime)) . ',"maxTimestampMs":-1,"tab":"faction","ascendingTimestampOrder":true,"v":"' . $this->conf['v'] . '"}';
+        $data = '{"minLatE6":' . $this->conf['minLatE6'] . ',"minLngE6":' . $this->conf['minLngE6'] . ',"maxLatE6":' . $this->conf['maxLatE6'] . ',"maxLngE6":' . $this->conf['maxLngE6'] . ',"minTimestampMs":' . strval(bcsub(microtime(true) * 1000, 60000 * $this->mintime)) . ',"maxTimestampMs":-1,"tab":"faction","ascendingTimestampOrder":true,"v":"' . $this->conf['v'] . '"}';
         $info = $this->curl($url, $data, $header);
         if ($info['status'] != 200) {
             return false;
