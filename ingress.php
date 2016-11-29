@@ -16,7 +16,7 @@ class ingress
     // configuration file
     private $conf;
     // Cookie file name
-    private $cookie_file = 'cookie.ini';
+    private $cookie_file = __DIR__ . '/cookie.ini';
 
     /**
      * [__construct description]
@@ -27,9 +27,9 @@ class ingress
      */
     public function __construct($mintime = 10)
     {
-        $this->sqllite = new SQLite3('agent.db', SQLITE3_OPEN_READWRITE | SQLITE3_OPEN_CREATE);
-        file_exists('conf.json') || exit('conf.json Not Found');
-        $conf = file_get_contents('conf.json');
+        $this->sqllite = new SQLite3(__DIR__ . '/agent.db', SQLITE3_OPEN_READWRITE | SQLITE3_OPEN_CREATE);
+        file_exists(__DIR__ . '/conf.json') || exit('conf.json Not Found');
+        $conf = file_get_contents(__DIR__ . '/conf.json');
         $conf = json_decode(preg_replace('/((\r|\n|^\s*)+(\/\/[^\n]*|(\/\*([^\*^\/]*|[\*^\/\*]*|[^\**\/]*)*\*\/)*)|\r|\n|^\s+|\s+$)*/sim', '', $conf), true);
         $this->conf = $conf ? $conf : array();
         $this->check_conf();
