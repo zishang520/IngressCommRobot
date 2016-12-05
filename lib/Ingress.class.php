@@ -15,8 +15,15 @@ class ingress
     private $sqllite;
     // configuration file
     private $conf;
+    // 获取用户的令牌
+    private $usertoken;
+    // 配置文件地址
+    private $conf_file = ROOT . '/data/conf.json';
+
     // Cookie file name
-    private $cookie_file = __DIR__ . '/cookie.ini';
+    private $cookie_file = ROOT . '/data/cookie.ini';
+    // 令牌缓存文件
+    private $tmp_file = ROOT . '/data/tmp.php';
 
     /**
      * [__construct description]
@@ -27,13 +34,11 @@ class ingress
      */
     public function __construct($mintime = 10)
     {
-        $this->sqllite = new SQLite3(__DIR__ . '/agent.db', SQLITE3_OPEN_READWRITE | SQLITE3_OPEN_CREATE);
-        file_exists(__DIR__ . '/conf.json') || exit('conf.json Not Found');
-        $conf = file_get_contents(__DIR__ . '/conf.json');
-        $conf = json_decode(preg_replace('/((\r|\n|^\s*)+(\/\/[^\n]*|(\/\*([^\*^\/]*|[\*^\/\*]*|[^\**\/]*)*\*\/)*)|\r|\n|^\s+|\s+$)*/sim', '', $conf), true);
-        $this->conf = $conf ? $conf : array();
-        $this->check_conf();
-        $this->mintime = $mintime;
+        //
+        $this->sqllite = new SQLite3(ROOT . '/data/agent.db', SQLITE3_OPEN_READWRITE | SQLITE3_OPEN_CREATE);
+        // 获取基础配置信息
+        $this->conf = $this->get_conf();
+        // 设置标准header
         $this->header = array(
             'Cache-Control' => 'Cache-Control: max-age=0',
             'User-Agent' => 'User-Agent: ' . $this->conf['UA'],
@@ -42,8 +47,11 @@ class ingress
             'Accept-Language' => 'Accept-Language: zh-CN,zh;q=0.8',
             'Origin' => 'Origin: https://www.ingress.com',
             'Referer' => 'Referer: https://www.ingress.com/intel',
-            'X-CSRFToken' => 'X-CSRFToken: ' . $this->conf['x-csrftoken'],
         );
+        $this->usertoken = $this->get_usertoken($this->conf['cookie']);
+        // 设置csrf
+        $this->header['X-CSRFToken'] = 'X-CSRFToken: ' . $this->usertoken['token'];
+        $this->mintime = $mintime;
     }
 
     /**
@@ -59,7 +67,7 @@ class ingress
      */
     protected function curl($url, $post = null, $header = array(), $cookie = true)
     {
-        $header = array_merge_recursive($this->header, $header);
+        $header = array_merge($this->header, $header);
         $data = array();
         $ch = curl_init();
         curl_setopt_array($ch,
@@ -76,7 +84,7 @@ class ingress
                 CURLOPT_NOBODY => false, //Set Not Show Body
             )
         );
-        if (!empty($post)) {
+        if ($post !== null) {
             $post = is_array($post) ? http_build_query($post) : $post;
             curl_setopt_array($ch,
                 array(
@@ -90,7 +98,7 @@ class ingress
             curl_setopt_array($ch,
                 array(
                     CURLOPT_SSL_VERIFYPEER => true, // Only trust the certificate issued by CA
-                    CURLOPT_CAINFO => __DIR__ . '/cacert.pem', // CA root certificate (used to verify whether the site certificate is issued by the CA)
+                    CURLOPT_CAINFO => ROOT . '/data/cacert.pem', // CA root certificate (used to verify whether the site certificate is issued by the CA)
                     CURLOPT_SSL_VERIFYHOST => 2,
                 )
             );
@@ -108,24 +116,115 @@ class ingress
         curl_close($ch);
         return $data;
     }
+
+    // 获取基础配置文件
+    protected function get_conf()
+    {
+        file_exists($this->conf_file) || $this->ShowError('conf.json Not Found');
+        $conf = json_decode(preg_replace('/((\r|\n|^\s*)+(\/\/[^\n]*|(\/\*([^\*^\/]*|[\*^\/\*]*|[^\**\/]*)*\*\/)*)|\r|\n|^\s+|\s+$)*/sim', '', file_get_contents($this->conf_file)), true);
+        if (empty($conf['cookie'])) {
+            $this->ShowError('Conf.json Cookie Not Set');
+        }
+        if (empty($conf['UA'])) {
+            $this->ShowError('Conf.json UA Not Set');
+        }
+        if (empty($conf['minLatE6'])) {
+            $this->ShowError('Conf.json minLatE6 Not Set');
+        }
+        if (empty($conf['minLngE6'])) {
+            $this->ShowError('Conf.json minLngE6" Not Set');
+        }
+        if (empty($conf['maxLatE6'])) {
+            $this->ShowError('Conf.json maxLatE6 Not Set');
+        }
+        if (empty($conf['maxLngE6'])) {
+            $this->ShowError('Conf.json maxLngE6 Not Set');
+        }
+        if (empty($conf['latE6'])) {
+            $this->ShowError('Conf.json latE6 Not Set');
+        }
+        if (empty($conf['lngE6'])) {
+            $this->ShowError('Conf.json lngE6 Not Set');
+        }
+        return $conf;
+    }
+
+    public function get_usertoken($cookie)
+    {
+        $tmp = new Config($this->tmp_file);
+        if ($tmp->get('time') && my_date_diff($tmp->get('time')) >= 0) {
+            return $tmp->get();
+        }
+        if (!$token = $this->get_token($cookie)) {
+            $this->ShowError('Get CsrfToken Error');
+        }
+        if (!$v = $this->get_v()) {
+            $this->ShowError('Get v Error');
+        }
+        $tmp->set(['v' => $v, 'token' => $token, 'time' => date('Y-m-d')]);
+        if ($tmp->save()) {
+            return $tmp->get();
+        }
+        $this->ShowError('Save Token File Error');
+    }
+
+    // 获取v值
+    public function get_v()
+    {
+        $url = 'https://www.ingress.com/intel';
+        $info = $this->curl($url, null);
+        if ($info['status'] != 200) {
+            return false;
+        }
+        if (preg_match('/<a\shref="(.*?)"\s.*?>Sign\sin<\/a>/sim', $info['info'], $match)) {
+            if (count($match) != 2) {
+                return false;
+            }
+            $info = $this->curl($match[1], null);
+        }
+        if (!preg_match('/<script\stype="text\/javascript"\ssrc="\/jsc\/gen_dashboard_(\w+)\.js"><\/script>/sim', $info['info'], $match)) {
+            return false;
+        }
+        if (count($match) != 2) {
+            return false;
+        }
+        return $match[1];
+    }
+
+    protected function get_token($str)
+    {
+        if (is_file($this->cookie_file)) {
+            if (preg_match('/(?<=csrftoken[\s+|\t+])\w+(?=\n)/', file_get_contents($this->cookie_file), $matchs)) {
+                return $match[0];
+            }
+        }
+        if (!preg_match('/(?<=csrftoken=).*?(?=;)/sim', $str, $match)) {
+            return false;
+        }
+        if (empty($match)) {
+            return false;
+        }
+        return $match[0];
+    }
     //Get message
     public function get_msg()
     {
         $url = 'https://www.ingress.com/r/getPlexts';
         $header['content-type'] = 'content-type:application/json; charset=UTF-8';
-        $data = '{"minLatE6":' . $this->conf['minLatE6'] . ',"minLngE6":' . $this->conf['minLngE6'] . ',"maxLatE6":' . $this->conf['maxLatE6'] . ',"maxLngE6":' . $this->conf['maxLngE6'] . ',"minTimestampMs":' . strval(bcsub(microtime(true) * 1000, 60000 * $this->mintime)) . ',"maxTimestampMs":-1,"tab":"faction","ascendingTimestampOrder":true,"v":"' . $this->conf['v'] . '"}';
+        $data = '{"minLatE6":' . $this->conf['minLatE6'] . ',"minLngE6":' . $this->conf['minLngE6'] . ',"maxLatE6":' . $this->conf['maxLatE6'] . ',"maxLngE6":' . $this->conf['maxLngE6'] . ',"minTimestampMs":' . strval(bcsub(microtime(true) * 1000, 60000 * $this->mintime)) . ',"maxTimestampMs":-1,"tab":"faction","ascendingTimestampOrder":true,"v":"' . $this->usertoken['v'] . '"}';
         $info = $this->curl($url, $data, $header);
         if ($info['status'] != 200) {
             return false;
         }
         return $info['info'];
     }
+
     //send message
     public function send_msg($msg)
     {
         $url = 'https://www.ingress.com/r/sendPlext';
         $header['content-type'] = 'content-type:application/json; charset=UTF-8';
-        $data = '{"message":"' . $msg . '","latE6":' . $this->conf['latE6'] . ',"lngE6":' . $this->conf['lngE6'] . ',"tab":"faction","v":"' . $this->conf['v'] . '"}';
+        $data = '{"message":"' . $msg . '","latE6":' . $this->conf['latE6'] . ',"lngE6":' . $this->conf['lngE6'] . ',"tab":"faction","v":"' . $this->usertoken['v'] . '"}';
         $info = $this->curl($url, $data, $header);
         if ($info['status'] != 200) {
             return false;
@@ -137,18 +236,20 @@ class ingress
             return $arr['result'];
         }
     }
+
     // Passcode automatic exchange
     public function auto_passcode($code)
     {
         $url = 'https://www.ingress.com/r/redeemReward';
         $header['content-type'] = 'content-type:application/json; charset=UTF-8';
-        $data = '{"passcode":"' . $code . '","v":"' . $this->conf['v'] . '"}';
+        $data = '{"passcode":"' . $code . '","v":"' . $this->usertoken['v'] . '"}';
         $info = $this->curl($url, $data, $header);
         if ($info['status'] != 200) {
             return false;
         }
         return json_decode($info['info'], true);
     }
+
     //给萌新发消息
     public function auto_send_msg_new_agent()
     {
@@ -184,6 +285,7 @@ class ingress
             return 'message send success,Info storage error';
         }
     }
+
     //是不是萌新
     private function check_new_agent($msg = '')
     {
@@ -201,7 +303,7 @@ class ingress
             if (count($match) != 2) {
                 return false;
             }
-            if (!preg_match('/(我是萌新|新人求带|新人求罩|大佬们求带|求组织|带带我)/sim', $match[0])) {
+            if (!preg_match('/(大家好|我是萌新|新人求带|新人求罩|大佬们求带|求组织|带带我)/sim', $match[0])) {
                 return false;
             }
             $sql = 'SELECT COUNT(`id`) FROM `user` WHERE `agent`="' . $match[1] . '"';
@@ -220,15 +322,10 @@ class ingress
         if (empty($this->conf['rand_msg'])) {
             $data = array(
                 ' 欢迎新人，快来加入川渝蓝军群(群号126821831)，发现精彩内容。',
-                ' Welcome newcomers, Come join the Sichuan-Chengdu Blue Army group (group number 126821831), found exciting content.',
                 ' 欢迎选择加入抵抗军·川渝蓝军群(群号126821831)，一起为建设社会主义社会、实现人类的全面自由发展而奋斗吧。',
-                ' Welcome to join the Resistance Army · Sichuan-Chengdu Blue Army group (group number 126821831), together for the building of a socialist society, to achieve the full freedom of human development and struggle.',
                 ' 您已进入秋名山路段，此处常有老司机出没，加入川渝蓝军群(群号126821831)，寻找这里的老司机吧。',
-                ' You have entered the Autumn Hill section, where the old drivers often come and go, join the Sichuan-Chengdu Blue Army group (group number 126821831), looking for the old driver here.',
                 ' 欢迎加入熊猫抵抗军(群号126821831)，感谢你在与shapers的斗争中选择了人性与救赎，选择与死磕并肩同行。新人你好，我是死磕。',
-                ' Welcome to join the Panda Resistance Army (group number 126821831), thank you in the struggle with the shapers of choice of human nature and redemption, choose to walk side by side with the Sike. Hello new, I was Sike.',
                 ' ingrees亚洲 中国分区 川渝地区组织需要你！快来加入川渝蓝军群(群号126821831)。',
-                ' Ingrees Asia Chinese partition in Sichuan and Chengdu area organization needs you! Come and join the group of Sichuan and Chengdu (No. 126821831).',
             );
         } else {
             $data = $this->conf['rand_msg'];
@@ -236,46 +333,11 @@ class ingress
         return $data[rand(0, count($data) - 1)];
     }
 
-    /**
-     * [check_conf 检测conf配置]
-     * @Author    ZiShang520@gmail.com
-     * @DateTime  2016-08-17T15:14:51+0800
-     * @copyright (c)                      ZiShang520    All Rights Reserved
-     * @return    [type]                   [description]
-     */
-    private function check_conf()
+    public function ShowError($msg)
     {
-        if (empty($this->conf['cookie'])) {
-            exit('Conf.json Cookie Not Set');
-        }
-        if (empty($this->conf['x-csrftoken'])) {
-            exit('Conf.json x-csrftoken Not Set');
-        }
-        if (empty($this->conf['UA'])) {
-            exit('Conf.json UA Not Set');
-        }
-        if (empty($this->conf['v'])) {
-            exit('Conf.json v Not Set');
-        }
-        if (empty($this->conf['minLatE6'])) {
-            exit('Conf.json minLatE6 Not Set');
-        }
-        if (empty($this->conf['minLngE6'])) {
-            exit('Conf.json minLngE6" Not Set');
-        }
-        if (empty($this->conf['maxLatE6'])) {
-            exit('Conf.json maxLatE6 Not Set');
-        }
-        if (empty($this->conf['maxLngE6'])) {
-            exit('Conf.json maxLngE6 Not Set');
-        }
-        if (empty($this->conf['latE6'])) {
-            exit('Conf.json latE6 Not Set');
-        }
-        if (empty($this->conf['lngE6'])) {
-            exit('Conf.json lngE6 Not Set');
-        }
+        throw new Exception($msg);
     }
+
     //析构函数
     public function __destruct()
     {
