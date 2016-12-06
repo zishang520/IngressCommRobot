@@ -7,7 +7,7 @@ require __DIR__ . '/init.php';
 
 $h = intval(date('H'));
 if (7 <= $h && $h <= 23) {
-    $a = new ingress(16);
+    $a = new Ingress(16);
     echo $a->auto_send_msg_new_agent();
     echo "\n";
 } else {

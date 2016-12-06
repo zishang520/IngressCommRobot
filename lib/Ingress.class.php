@@ -3,7 +3,7 @@
 /**
  * ingress
  */
-class ingress
+class Ingress
 {
     // Request Header
     private $header = array();
