@@ -121,7 +121,7 @@ class Ingress
     protected function get_conf()
     {
         file_exists($this->conf_file) || $this->ShowError('conf.json Not Found');
-        $conf = json_decode(preg_replace('/((\r|\n|^\s*)+(\/\/[^\n]*|(\/\*([^\*^\/]*|[\*^\/\*]*|[^\**\/]*)*\*\/)*)|\r|\n|^\s+|\s+$)*/sim', '', file_get_contents($this->conf_file)), true);
+        $conf = jsObj::decode(file_get_contents($this->conf_file), true);
         if (empty($conf['cookie'])) {
             $this->ShowError('Conf.json Cookie Not Set');
         }
