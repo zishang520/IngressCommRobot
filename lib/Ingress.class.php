@@ -195,7 +195,7 @@ class Ingress
     {
         if (is_file($this->cookie_file)) {
             if (preg_match('/(?<=csrftoken[\s+|\t+])\w+(?=\n)/', file_get_contents($this->cookie_file), $matchs)) {
-                return $match[0];
+                return $matchs[0];
             }
         }
         if (!preg_match('/(?<=csrftoken=).*?(?=;)/sim', $str, $match)) {
