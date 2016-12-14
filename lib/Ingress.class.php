@@ -42,8 +42,8 @@ class Ingress
         $this->header = array(
             'Cache-Control' => 'Cache-Control: max-age=0',
             'User-Agent' => 'User-Agent: ' . $this->conf['UA'],
-            'Upgrade-Insecure-Requests' => '1',
-            'Accept:' => 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Upgrade-Insecure-Requests' => 'Upgrade-Insecure-Requests: 1',
+            'Accept' => 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language' => 'Accept-Language: zh-CN,zh;q=0.8',
             'Origin' => 'Origin: https://www.ingress.com',
             'Referer' => 'Referer: https://www.ingress.com/intel',
@@ -194,11 +194,11 @@ class Ingress
     protected function get_token($str)
     {
         if (is_file($this->cookie_file)) {
-            if (preg_match('/(?<=csrftoken[\s+|\t+])\w+(?=\n)/', file_get_contents($this->cookie_file), $matchs)) {
+            if (preg_match('/(?<=csrftoken[\s*])\w+(?=\n)?/sim', file_get_contents($this->cookie_file), $matchs)) {
                 return $matchs[0];
             }
         }
-        if (!preg_match('/(?<=csrftoken=).*?(?=;)/sim', $str, $match)) {
+        if (!preg_match('/(?<=csrftoken=)\w+(?=;)?/sim', $str, $match)) {
             return false;
         }
         if (empty($match)) {
