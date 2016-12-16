@@ -7,7 +7,7 @@
         FileCookieStore = require('tough-cookie-filestore'),
         Sqlite3 = require("sqlite3").verbose();
 
-        // 内置函数
+    // 内置函数
     var parse_url = function(str, component) {
 
             var key = ["source", "scheme", "authority", "userInfo", "user", "pass", "host", "port", "relative", "path", "directory", "file", "query", "fragment"],
@@ -171,13 +171,13 @@
             return path.replace(/\\/g, '/').replace(/\/[^\/]*\/?$/, '');
         };
 
-        // 文件路径
+    // 文件路径
     var COOKIE_FILE = dirname(__dirname) + '/data/cookie.json',
         AGENT_DB = dirname(__dirname) + "/data/agent.db",
         CONF_PATH = dirname(__dirname) + '/data/conf.json',
         TMP_FILE = dirname(__dirname) + '/data/tmp.json';
 
-        // 创建对象开始
+    // 创建对象开始
     var Ingress = function(mintime) {
         // 前面的历史记录时间
         this.mintime = isNaN(mintime) ? mintime : 15;
@@ -416,39 +416,45 @@
                 if (data) {
                     if (data.hasOwnProperty('result')) {
                         var result = data.result;
-                        this.db.serialize(() => {
-                            var stmt = this.db.prepare('SELECT COUNT(`id`) AS num FROM `user` WHERE `agent`=?');
-                            for (var key in result) {
-                                CheckNewAgent(stmt, result[key][2].plext.text);
-                            }
-                            // 处理完成执行
-                            stmt.finalize(() => {
-                                var time = new Date(),
-                                    st = '',
-                                    newagentarr = [];
-                                for (var k in agents) {
-                                    st += '@' + agents[k] + '  ';
-                                    newagentarr.push('("' + agents[k] + '", ' + time.getTime() + ')');
+                        try {
+                            this.db.serialize(() => {
+                                var stmt = this.db.prepare('SELECT COUNT(`id`) AS num FROM `user` WHERE `agent`=?');
+                                for (var key in result) {
+                                    CheckNewAgent(stmt, result[key][2].plext.text);
                                 }
-                                if (st !== '' && !empty(newagentarr)) {
-                                    this.sendMsg(st + ' ' + this.randMsg(), (data) => {
-                                        if (data && data.hasOwnProperty('result') && data.result == 'success') {
-                                            this.db.run("INSERT INTO `user` (`agent`, `createtime`) VALUES " + newagentarr.join(','), function(err) {
-                                                if (!err) {
-                                                    cb('message send success,Info storage success');
-                                                } else {
-                                                    cb('message send success,Info storage error');
-                                                }
-                                            });
-                                        } else {
-                                            cb('Send Message Error');
-                                        }
-                                    });
-                                } else {
-                                    cb('Not New Agent');
-                                }
+                                // 处理完成执行
+                                stmt.finalize(() => {
+                                    var time = new Date(),
+                                        st = '',
+                                        newagentarr = [];
+                                    for (var k in agents) {
+                                        st += '@' + agents[k] + '  ';
+                                        newagentarr.push('("' + agents[k] + '", ' + time.getTime() + ')');
+                                    }
+                                    if (st !== '' && !empty(newagentarr)) {
+                                        this.sendMsg(st + ' ' + this.randMsg(), (data) => {
+                                            if (data && data.hasOwnProperty('result') && data.result == 'success') {
+                                                this.db.run("INSERT INTO `user` (`agent`, `createtime`) VALUES " + newagentarr.join(','), function(err) {
+                                                    if (!err) {
+                                                        cb('message send success,Info storage success');
+                                                    } else {
+                                                        cb('message send success,Info storage error');
+                                                    }
+                                                });
+                                            } else {
+                                                cb('Send Message Error');
+                                            }
+                                        });
+                                    } else {
+                                        cb('Not New Agent');
+                                    }
+                                });
                             });
-                        });
+                        } catch (e) {
+                            throw e;
+                        } finally {
+                            this.db.close();
+                        }
                     } else {
                         cb('Not New Message');
                     }
