@@ -169,6 +169,34 @@
         },
         dirname = function(path) {
             return path.replace(/\\/g, '/').replace(/\/[^\/]*\/?$/, '');
+        },
+        array_unique = function(inputArr) {
+            var key = '',
+                tmpArr2 = {},
+                val = '';
+
+            var _arraySearch = function(needle, haystack) {
+                var fkey = '';
+                for (fkey in haystack) {
+                    if (haystack.hasOwnProperty(fkey)) {
+                        if ((haystack[fkey] + '') === (needle + '')) {
+                            return fkey;
+                        }
+                    }
+                }
+                return false;
+            };
+
+            for (key in inputArr) {
+                if (inputArr.hasOwnProperty(key)) {
+                    val = inputArr[key];
+                    if (_arraySearch(val, tmpArr2) === false) {
+                        tmpArr2[key] = val;
+                    }
+                }
+            }
+
+            return tmpArr2;
         };
 
     // 文件路径
@@ -427,10 +455,11 @@
                                     var time = new Date(),
                                         st = '',
                                         newagentarr = [];
-                                    for (var k in agents) {
-                                        st += '@' + agents[k] + '  ';
-                                        newagentarr.push('("' + agents[k] + '", ' + time.getTime() + ')');
-                                    }
+                                    var unique_agents = array_unique(agents);
+                                        for (var k in unique_agents) {
+                                            st += '@' + unique_agents[k] + '  ';
+                                            newagentarr.push('("' + unique_agents[k] + '", ' + time.getTime() + ')');
+                                        }
                                     if (st !== '' && !empty(newagentarr)) {
                                         this.sendMsg(st + ' ' + this.randMsg(), (data) => {
                                             if (data && data.hasOwnProperty('result') && data.result == 'success') {
