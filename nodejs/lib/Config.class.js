@@ -15,7 +15,7 @@
         this.option = typeof option === 'object' ? option : {};
         if (fs.existsSync(this.file_name)) {
             try {
-                var arr = eval('(' + fs.readFileSync(this.file_name, 'utf8') + ')');
+                var arr = new Function('return (' + fs.readFileSync(this.file_name, 'utf8') + ')')();
                 this.arr = (typeof arr === 'object') ? arr : {};
             } catch (err) {
                 if (!(err instanceof SyntaxError)) {
