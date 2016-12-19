@@ -347,18 +347,8 @@
             // url = 'http://127.0.0.1/a.php',
             url = 'https://www.ingress.com/r/getPlexts',
             header = { 'Content-type': 'application/json; charset=UTF-8' },
-            data = {
-                "minLatE6": this.conf.minLatE6,
-                "minLngE6": this.conf.minLngE6,
-                "maxLatE6": this.conf.maxLatE6,
-                "maxLngE6": this.conf.maxLngE6,
-                "minTimestampMs": ((new Date()).getTime() - 60000 * this.mintime),
-                "maxTimestampMs": -1,
-                "tab": "faction",
-                "ascendingTimestampOrder": true,
-                "v": this.conf.v
-            };
-        this.curl(url, JSON.stringify(data), header, function(err, res, data) {
+            data = '{"minLatE6":' + this.conf.minLatE6 + ',"minLngE6":' + this.conf.minLngE6 + ',"maxLatE6":' + this.conf.maxLatE6 + ',"maxLngE6":' + this.conf.maxLngE6 + ',"minTimestampMs":' + ((new Date()).getTime() - 60000 * this.mintime) + ',"maxTimestampMs":-1,"tab":"faction","ascendingTimestampOrder":true,"v":"' + this.conf.v + '"}';
+        this.curl(url, data, header, function(err, res, data) {
             if (!err) {
                 if (res.statusCode == 200) {
                     try {
@@ -382,14 +372,8 @@
                 // url = 'http://127.0.0.1/a.php?r',
                 url = 'https://www.ingress.com/r/sendPlext',
                 header = { 'Content-type': 'application/json; charset=UTF-8' },
-                data = {
-                    "message": msg,
-                    "latE6": this.conf.latE6,
-                    "lngE6": this.conf.lngE6,
-                    "tab": "faction",
-                    "v": this.conf.v
-                };
-            this.curl(url, JSON.stringify(data), header, function(err, res, data) {
+                data = '{"message":"' + msg + '","latE6":' + this.conf.latE6 + ',"lngE6":' + this.conf.lngE6 + ',"tab":"faction","v":"' + this.conf.v + '"}';
+            this.curl(url, data, header, function(err, res, data) {
                 if (!err) {
                     if (res.statusCode == 200) {
                         try {

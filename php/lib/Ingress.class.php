@@ -181,6 +181,9 @@ class Ingress
                 return false;
             }
             $info = $this->curl($match[1], null);
+            if ($info['status'] != 200) {
+                return false;
+            }
         }
         if (!preg_match('/<script\stype="text\/javascript"\ssrc="\/jsc\/gen_dashboard_(\w+)\.js"><\/script>/sim', $info['info'], $match)) {
             return false;
@@ -263,17 +266,21 @@ class Ingress
         if (empty($arr['result']) || !is_array($arr['result'])) {
             return 'not new message';
         }
-        $agents = '';
-        $values = array();
+        $newagents = array();
         foreach ($arr['result'] as $value) {
             if ($agent = $this->check_new_agent($value[2]['plext']['text'])) {
-                $values[] = '("' . $agent . '",' . time() . ')';
-                $agents .= '@' . $agent . ' ';
+                array_push($newagents, $agent);
             }
         }
-        if ($agents == '') {
+        if (count($newagents) == 0) {
             return 'not new agent';
-
+        }
+        $newagents = array_unique($newagents);
+        $agents = '';
+        $values = array();
+        foreach ($newagents as $value) {
+            array_push($values, '("' . $agent . '",' . time() . ')');
+            $agents .= '@' . $agent . ' ';
         }
         if (($this->send_msg($agents . ' ' . $this->rand_msg())) != 'success') {
             return 'message send error';
@@ -289,15 +296,10 @@ class Ingress
     //是不是萌新
     private function check_new_agent($msg = '')
     {
-        if (preg_match('/\[secure\]\s+(\w+):\s+has completed training\.?/sim', $msg, $match)) {
+        $match = '';
+        if (preg_match('/\[secure\]\s+(\w+):\s+has\scompleted\straining\.?/sim', $msg, $match)) {
             if (count($match) != 2) {
                 return false;
-            }
-            $sql = 'SELECT COUNT(`id`) FROM `user` WHERE `agent`="' . $match[1] . '"';
-            if ($this->sqllite->querySingle($sql) >= 1) {
-                return false;
-            } else {
-                return $match[1];
             }
         } else if (preg_match('/\[secure\]\s(\w+):\s+.*/sim', $msg, $match)) {
             if (count($match) != 2) {
@@ -306,15 +308,14 @@ class Ingress
             if (!preg_match('/(大家好|我是萌新|新人求带|新人求罩|大佬们求带|求组织|带带我)/sim', $match[0])) {
                 return false;
             }
-            $sql = 'SELECT COUNT(`id`) FROM `user` WHERE `agent`="' . $match[1] . '"';
-            if ($this->sqllite->querySingle($sql) > 0) {
-                return false;
-            } else {
-                return $match[1];
-            }
         } else {
             return false;
         }
+        $sql = 'SELECT COUNT(`id`) FROM `user` WHERE `agent`="' . $match[1] . '"';
+        if ($this->sqllite->querySingle($sql) > 0) {
+            return false;
+        }
+        return $match[1];
     }
     //随机消息
     private function rand_msg()
