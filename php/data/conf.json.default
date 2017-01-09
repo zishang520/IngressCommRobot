@@ -1,6 +1,6 @@
 {
-    // 你的Cokie
-    "cookie": "",
+    "email": "youname@gmail.com",
+    "password": "yourpassword",
     // 浏览器信息
     "UA": "",
     // 以下默认成都地区

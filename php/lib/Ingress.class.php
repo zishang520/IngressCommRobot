@@ -48,7 +48,7 @@ class Ingress
             'Origin' => 'Origin: https://www.ingress.com',
             'Referer' => 'Referer: https://www.ingress.com/intel',
         );
-        $this->usertoken = $this->get_usertoken($this->conf['cookie']);
+        $this->usertoken = $this->get_usertoken();
         // 设置csrf
         $this->header['X-CSRFToken'] = 'X-CSRFToken: ' . $this->usertoken['token'];
         $this->mintime = $mintime;
@@ -73,11 +73,11 @@ class Ingress
         curl_setopt_array($ch,
             array(
                 CURLOPT_URL => $url, //Request Url
-                // CURLOPT_PROXY => 'http://127.0.0.1:8080', // HTTPS could not run
+                CURLOPT_PROXY => 'http://127.0.0.1:1080', // HTTPS could not run
                 CURLOPT_HTTPHEADER => $header, //Set Request Header
                 CURLOPT_AUTOREFERER => true, // Open Auto Referer
                 CURLOPT_FOLLOWLOCATION => true, //Open Auto Location
-                CURLOPT_COOKIE => $this->conf['cookie'], //Set Cookie
+                // CURLOPT_COOKIE => $this->conf['cookie'], //Set Cookie
                 CURLOPT_TIMEOUT => 30, //Set Timeout
                 CURLOPT_RETURNTRANSFER => true, //Set Not Show Response Headers
                 CURLOPT_HEADER => false, //Set Not Output Header
@@ -112,6 +112,7 @@ class Ingress
             );
         }
         $data['info'] = curl_exec($ch);
+        $data['header'] = curl_getinfo($ch);
         $data['status'] = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         return $data;
@@ -122,8 +123,11 @@ class Ingress
     {
         file_exists($this->conf_file) || $this->ShowError('conf.json Not Found');
         $conf = jsObj::decode(file_get_contents($this->conf_file), true);
-        if (empty($conf['cookie'])) {
-            $this->ShowError('Conf.json Cookie Not Set');
+        if (empty($conf['email'])) {
+            $this->ShowError('Conf.json Email Not Set');
+        }
+        if (empty($conf['password'])) {
+            $this->ShowError('Conf.json Password Not Set');
         }
         if (empty($conf['UA'])) {
             $this->ShowError('Conf.json UA Not Set');
@@ -149,17 +153,17 @@ class Ingress
         return $conf;
     }
 
-    public function get_usertoken($cookie)
+    public function get_usertoken()
     {
         $tmp = new Config($this->tmp_file);
         if ($tmp->get('time') && my_date_diff($tmp->get('time')) >= 0) {
             return $tmp->get();
         }
-        if (!$token = $this->get_token($cookie)) {
-            $this->ShowError('Get CsrfToken Error');
-        }
         if (!$v = $this->get_v()) {
             $this->ShowError('Get v Error');
+        }
+        if (!$token = $this->get_token()) {
+            $this->ShowError('Get CsrfToken Error');
         }
         $tmp->set(['v' => $v, 'token' => $token, 'time' => date('Y-m-d')]);
         if ($tmp->save()) {
@@ -180,7 +184,7 @@ class Ingress
             if (count($match) != 2) {
                 return false;
             }
-            $info = $this->curl($match[1], null);
+            $info = $this->auto_login($match[1]);
             if ($info['status'] != 200) {
                 return false;
             }
@@ -193,16 +197,74 @@ class Ingress
         }
         return $match[1];
     }
+    protected function auto_login($login_url)
+    {
+        $header['Origin'] = 'Origin: https://accounts.google.com';
+        $info = $this->curl($login_url, null, $header);
+        if ($info['status'] != 200) {
+            $this->ShowError('Get Login Url Error');
+        }
+        $header['Referer'] = 'Referer: ' . $info['header']['url'];
 
-    protected function get_token($str)
+        $data = [
+            'Email' => $this->conf['email'],
+        ];
+        $html = new simple_html_dom();
+        $html->load($info['info']);
+        $main = $html->find('input[name]');
+        foreach ($main as $value) {
+            switch ($value->name) {
+                case 'Page':
+                    $data['Page'] = $value->value;
+                    break;
+                case 'service':
+                    $data['service'] = $value->value;
+                    break;
+                case 'ltmpl':
+                    $data['ltmpl'] = $value->value;
+                    break;
+                case 'continue':
+                    $data['continue'] = $value->value;
+                    break;
+                case 'gxf':
+                    $data['gxf'] = $value->value;
+                    break;
+                case 'GALX':
+                    $data['GALX'] = $value->value;
+                    break;
+                case 'shdf':
+                    $data['shdf'] = $value->value;
+                    break;
+                case '_utf8':
+                    $data['_utf8'] = $value->value;
+                    break;
+                case 'bgresponse':
+                    $data['bgresponse'] = $value->value;
+                    break;
+            }
+        }
+        $username_xhr_url = 'https://accounts.google.com/accountLoginInfoXhr';
+        $_ = $this->curl($username_xhr_url, $data, $header);
+        if ($_['status'] != 200) {
+            $this->ShowError('Check User Email Error');
+        }
+        $password_url = 'https://accounts.google.com/signin/challenge/sl/password';
+
+        $data['Page'] = 'PasswordSeparationSignIn';
+        $data['identifiertoken'] = '';
+        $data['identifiertoken_audio'] = '';
+        $data['identifier-captcha-input'] = '';
+        $data['Passwd'] = $this->conf['password'];
+        $data['PersistentCookie'] = 'yes';
+        return $this->curl($password_url, $data, $header);
+    }
+
+    protected function get_token()
     {
         if (is_file($this->cookie_file)) {
             if (preg_match('/(?<=csrftoken[\s*])\w+(?=\n)?/sim', file_get_contents($this->cookie_file), $matchs)) {
                 return $matchs[0];
             }
-        }
-        if (!preg_match('/(?<=csrftoken=)\w+(?=;)?/sim', $str, $match)) {
-            return false;
         }
         if (empty($match)) {
             return false;
@@ -213,7 +275,7 @@ class Ingress
     public function get_msg()
     {
         $url = 'https://www.ingress.com/r/getPlexts';
-        $header['content-type'] = 'content-type:application/json; charset=UTF-8';
+        $header['content-type'] = 'content-type: application/json; charset=UTF-8';
         $data = '{"minLatE6":' . $this->conf['minLatE6'] . ',"minLngE6":' . $this->conf['minLngE6'] . ',"maxLatE6":' . $this->conf['maxLatE6'] . ',"maxLngE6":' . $this->conf['maxLngE6'] . ',"minTimestampMs":' . strval(bcsub(microtime(true) * 1000, 60000 * $this->mintime)) . ',"maxTimestampMs":-1,"tab":"faction","ascendingTimestampOrder":true,"v":"' . $this->usertoken['v'] . '"}';
         $info = $this->curl($url, $data, $header);
         if ($info['status'] != 200) {
@@ -226,7 +288,7 @@ class Ingress
     public function send_msg($msg)
     {
         $url = 'https://www.ingress.com/r/sendPlext';
-        $header['content-type'] = 'content-type:application/json; charset=UTF-8';
+        $header['content-type'] = 'content-type: application/json; charset=UTF-8';
         $data = '{"message":"' . $msg . '","latE6":' . $this->conf['latE6'] . ',"lngE6":' . $this->conf['lngE6'] . ',"tab":"faction","v":"' . $this->usertoken['v'] . '"}';
         $info = $this->curl($url, $data, $header);
         if ($info['status'] != 200) {
@@ -244,7 +306,7 @@ class Ingress
     public function auto_passcode($code)
     {
         $url = 'https://www.ingress.com/r/redeemReward';
-        $header['content-type'] = 'content-type:application/json; charset=UTF-8';
+        $header['content-type'] = 'content-type: application/json; charset=UTF-8';
         $data = '{"passcode":"' . $code . '","v":"' . $this->usertoken['v'] . '"}';
         $info = $this->curl($url, $data, $header);
         if ($info['status'] != 200) {
