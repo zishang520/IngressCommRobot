@@ -60,8 +60,10 @@ pip3 install lxml
 
 run
 
-```nodejs
-nodejs run.js
+```python
+python run.py
+```
+
 
 ---------------------------------------
 ###Configuration Information:
