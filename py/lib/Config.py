@@ -3,7 +3,7 @@
 """
 Config
 """
-__author__ = 'zishang520'
+__author__ = 'zishang520@gmail.com'
 
 import os
 import json

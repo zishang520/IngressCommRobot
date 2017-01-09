@@ -1,16 +1,13 @@
 {
-    // 你的Cokie
-    "cookie": "",
-    // 浏览器信息
-    "UA": "",
-    // 以下默认成都地区
-    "maxLatE6": 31017779,
-    "maxLngE6": 105039597,
-    "minLatE6": 30427509,
-    "minLngE6": 103092270,
-    "latE6": 30658735,
-    "lngE6": 104075546,
-    // 发送消息，为空则使用系统默认
+    "email":"youname@gmail.com",
+    "password":"yourpassword",
+    "UA": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36",
+    "maxLatE6": "31017779",
+    "maxLngE6": "105039597",
+    "minLatE6": "30427509",
+    "minLngE6": "103092270",
+    "latE6": "30658735",
+    "lngE6": "104075546",
     "rand_msg": [
         " 欢迎新人，快来加入川渝蓝军群(群号126821831)，发现精彩内容。",
         " 欢迎选择加入抵抗军·川渝蓝军群(群号126821831)，一起为建设社会主义社会、实现人类的全面自由发展而奋斗吧。",

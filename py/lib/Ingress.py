@@ -13,13 +13,14 @@ import re
 import time
 import random
 
-from urllib.parse import urlparse,quote
-from http.cookiejar import Cookie,MozillaCookieJar
+from urllib.parse import urlparse, quote
+from http.cookiejar import Cookie, MozillaCookieJar
+from bs4 import BeautifulSoup as bs
 
 # 自有扩展
 from lib.Config import Config
 
-__author__ = 'zishang520'
+__author__ = 'zishang520@gmail.com'
 
 
 class Ingress:
@@ -55,11 +56,11 @@ class Ingress:
             'Accept-Language': 'zh-CN,zh;q=0.8',
             'Origin': 'https://www.ingress.com',
             'Referer': 'https://www.ingress.com/intel',
-            'X-CSRFToken': self.__get_token()
         }
         self.__conf['v'] = self.__get_user_v()
-
+        self.__headers.update({'X-CSRFToken': self.__get_token()})
         self.__conn = sqlite3.connect(self.__AGENT_DB__)
+
 
     # 设置cookie对象，私有
     def __set_cookie(self, key, val, domain):
@@ -75,7 +76,7 @@ class Ingress:
     def request(self, url='', body=None, headers={}):
         if not isinstance(url, str) or url == '':
             raise TypeError('The Url must be a string and can not be empty')
-        if body is not None and not isinstance(body, (str, dict)):
+        if body is not None and not isinstance(body, (str, dict, bytes)):
             raise TypeError('The Body must be a string or dict')
         if not isinstance(headers, dict):
             raise TypeError('The Headers must be a dict')
@@ -86,10 +87,10 @@ class Ingress:
         # 基础参数
         Option = {
             "proxies": {
-                # "http": "http://10.10.1.10:3128",
-                "https": "http://127.0.0.1:8080"
+                'http': 'http://127.0.0.1:1080',
+                'https': 'http://127.0.0.1:1080',
             },
-            "verify": False,
+            "verify": True,
             "allow_redirects": True,  # 开启自动重定向
             "timeout": 30,  # 超时时间s
             "headers": self.__headers,  # 请求头
@@ -98,12 +99,6 @@ class Ingress:
         # 启用会话模式
         session = requests.session()
         session.cookies = MozillaCookieJar(self.__COOKIE_FILE__)
-
-        for k in self.__conf['cookie'].split('; '):
-            kv = k.split('=')
-            # 添加cookie
-            session.cookies.set_cookie(self.__set_cookie(
-                kv[0], kv[1], urlparse(url)[1]))
 
         # 服务器发送的cookie
         if os.path.isfile(self.__COOKIE_FILE__):
@@ -133,30 +128,33 @@ class Ingress:
             if not isinstance(conf, dict):
                 raise TypeError('The Conf Must A Dict')
 
-            if 'cookie' not in conf or not isinstance(conf['cookie'], str) or conf['cookie'] == '':
-                raise KeyError(
-                    'undefined index Cookie or value is not string or value is empty')
             if 'UA' not in conf or not isinstance(conf['UA'], str) or conf['UA'] == '':
                 raise KeyError(
                     'undefined index UA or value is not string or value is empty')
-            if 'minLatE6' not in conf or not isinstance(conf['minLatE6'], int) or conf['minLatE6'] == '':
+            if 'email' not in conf or not isinstance(conf['email'], str) or conf['email'] == '':
                 raise KeyError(
-                    'undefined index minLatE6 or value is not int or value is empty')
-            if 'minLngE6' not in conf or not isinstance(conf['minLngE6'], int) or conf['minLngE6'] == '':
+                    'undefined index email or value is not string or value is empty')
+            if 'password' not in conf or not isinstance(conf['password'], str) or conf['password'] == '':
                 raise KeyError(
-                    'undefined index minLngE6 or value is not int or value is empty')
-            if 'maxLatE6' not in conf or not isinstance(conf['maxLatE6'], int) or conf['maxLatE6'] == '':
+                    'undefined index password or value is not string or value is empty')
+            if 'minLatE6' not in conf or not isinstance(conf['minLatE6'], (int, str)) or conf['minLatE6'] == '':
                 raise KeyError(
-                    'undefined index maxLatE6 or value is not int or value is empty')
-            if 'maxLngE6' not in conf or not isinstance(conf['maxLngE6'], int) or conf['maxLngE6'] == '':
+                    'undefined index minLatE6 or value is not int|string or value is empty')
+            if 'minLngE6' not in conf or not isinstance(conf['minLngE6'], (int, str)) or conf['minLngE6'] == '':
                 raise KeyError(
-                    'undefined index maxLngE6 or value is not int or value is empty')
-            if 'latE6' not in conf or not isinstance(conf['latE6'], int) or conf['latE6'] == '':
+                    'undefined index minLngE6 or value is not int|string or value is empty')
+            if 'maxLatE6' not in conf or not isinstance(conf['maxLatE6'], (int, str)) or conf['maxLatE6'] == '':
                 raise KeyError(
-                    'undefined index latE6 or value is not int or value is empty')
-            if 'lngE6' not in conf or not isinstance(conf['lngE6'], int) or conf['lngE6'] == '':
+                    'undefined index maxLatE6 or value is not int|string or value is empty')
+            if 'maxLngE6' not in conf or not isinstance(conf['maxLngE6'], (int, str)) or conf['maxLngE6'] == '':
                 raise KeyError(
-                    'undefined index lngE6 or value is not int or value is empty')
+                    'undefined index maxLngE6 or value is not int|string or value is empty')
+            if 'latE6' not in conf or not isinstance(conf['latE6'], (int, str)) or conf['latE6'] == '':
+                raise KeyError(
+                    'undefined index latE6 or value is not int|string or value is empty')
+            if 'lngE6' not in conf or not isinstance(conf['lngE6'], (int, str)) or conf['lngE6'] == '':
+                raise KeyError(
+                    'undefined index lngE6 or value is not int|string or value is empty')
         return conf
 
     # 获取令牌
@@ -181,12 +179,12 @@ class Ingress:
         r = self.request('https://www.ingress.com/intel')
         if r.status_code != 200:
             return False
-        # 获取是否存在url
+        # 获取是否需要登陆
         info = re.search(r'<a\shref="(.*?)"\s.*?>Sign\sin<\/a>',
                          r.text,  re.M | re.I | re.S)
         # 判断存在并且有值
         if info is not None and len(info.groups()) == 1:
-            r = self.request(info.group(1))
+            r = self.__login(info.group(1))
             if r.status_code != 200:
                 return False
         # 匹配v
@@ -197,6 +195,66 @@ class Ingress:
             return info.group(1)
 
         return False
+
+    # Login
+    def __login(self, login_url):
+
+        if not isinstance(login_url, str) or login_url == '':
+            raise TypeError(
+                'The login_url must be a string and can not be empty')
+        _ = self.request(login_url)
+        if _.status_code != 200:
+            raise ValueError('Get Login Url Error')
+
+        # url = 'http://127.0.0.1/c.php'
+        username_xhr_url = 'https://accounts.google.com/accountLoginInfoXhr'
+        header = {
+            'Origin': 'https://accounts.google.com',
+            'Referer': _.url,
+        }
+        html = bs(_.text, 'lxml')
+        data = {
+            'Email': self.__conf['email'],
+        }
+        for i in html.form.select('input[name]'):
+            try:
+                if i['name'] == 'Page':
+                    data.update({'Page': i['value']})
+                elif i['name'] == 'service':
+                    data.update({'service': i['value']})
+                elif i['name'] == 'ltmpl':
+                    data.update({'ltmpl': i['value']})
+                elif i['name'] == 'continue':
+                    data.update({'continue': i['value']})
+                elif i['name'] == 'gxf':
+                    data.update({'gxf': i['value']})
+                elif i['name'] == 'GALX':
+                    data.update({'GALX': i['value']})
+                elif i['name'] == 'shdf':
+                    data.update({'shdf': i['value']})
+                elif i['name'] == '_utf8':
+                    data.update({'_utf8': i['value']})
+                elif i['name'] == 'bgresponse':
+                    data.update({'bgresponse': i['value']})
+            except KeyError:
+                raise KeyError(
+                    'Form Empty')
+
+        _ = self.request(username_xhr_url, data, header)
+        if _.status_code != 200:
+            raise ValueError('Check User Email Error')
+
+        password_url = 'https://accounts.google.com/signin/challenge/sl/password'
+        data.update({
+            'Page': 'PasswordSeparationSignIn',
+            'identifiertoken': '',
+            'identifiertoken_audio': '',
+            'identifier-captcha-input': '',
+            'Passwd': self.__conf['password'],
+            'PersistentCookie': 'yes',
+        })
+
+        return self.request(password_url, data, header)
 
     # 保存v
     def __get_user_v(self):
@@ -224,8 +282,9 @@ class Ingress:
         # url = 'http://127.0.0.1/c.php'
         url = 'https://www.ingress.com/r/getPlexts'
         header = {'Content-type': 'application/json; charset=UTF-8'}
-        data = '{"minLatE6":' + str(self.__conf['minLatE6']) + ',"minLngE6":' + str(self.__conf['minLngE6']) + ',"maxLatE6":' + str(self.__conf['maxLatE6']) + ',"maxLngE6":' + str(self.__conf['maxLngE6']) + ',"minTimestampMs":' + str(int(time.time() * 1000 - 60000 * self.__mintime)) + ',"maxTimestampMs":-1,"tab":"faction","ascendingTimestampOrder":true,"v":"' + self.__conf['v'] + '"}'
-        r = self.request(url, data, header)
+        data = '{"minLatE6":' + str(self.__conf['minLatE6']) + ',"minLngE6":' + str(self.__conf['minLngE6']) + ',"maxLatE6":' + str(self.__conf['maxLatE6']) + ',"maxLngE6":' + str(self.__conf[
+            'maxLngE6']) + ',"minTimestampMs":' + str(int(time.time() * 1000 - 60000 * self.__mintime)) + ',"maxTimestampMs":-1,"tab":"faction","ascendingTimestampOrder":true,"v":"' + self.__conf['v'] + '"}'
+        r = self.request(url, data.encode('UTF-8'), header)
         if r.status_code != 200:
             return False
         return json.loads(r.text)
@@ -238,9 +297,10 @@ class Ingress:
         # url = 'http://127.0.0.1/a.php?r'
         url = 'https://www.ingress.com/r/sendPlext'
         header = {'Content-type': 'application/json; charset=UTF-8'}
-        data = '{"message":"' + msg + '","latE6":' + str(self.__conf['latE6']) + ',"lngE6":' + str(self.__conf['lngE6']) + ',"tab":"faction","v":"' + self.__conf['v'] + '"}'
-        print(data)
-        r = self.request(url, data, header)
+        data = '{"message":"' + msg + '","latE6":' + str(self.__conf['latE6']) + ',"lngE6":' + str(
+            self.__conf['lngE6']) + ',"tab":"faction","v":"' + self.__conf['v'] + '"}'
+
+        r = self.request(url, data.encode('UTF-8'), header)
         if r.status_code != 200:
             return False
         return json.loads(r.text)
