@@ -61,7 +61,6 @@ class Ingress:
         self.__headers.update({'X-CSRFToken': self.__get_token()})
         self.__conn = sqlite3.connect(self.__AGENT_DB__)
 
-
     # 设置cookie对象，私有
     def __set_cookie(self, key, val, domain):
 
@@ -87,8 +86,8 @@ class Ingress:
         # 基础参数
         Option = {
             "proxies": {
-                'http': 'http://127.0.0.1:1080',
-                'https': 'http://127.0.0.1:1080',
+                # 'http': 'http://127.0.0.1:1080',
+                # 'https': 'http://127.0.0.1:1080',
             },
             "verify": True,
             "allow_redirects": True,  # 开启自动重定向
@@ -166,10 +165,6 @@ class Ingress:
                     r'(?<=csrftoken[\s*])\w+(?=\n)?', _F.read(), re.M | re.I | re.S)
                 if matches is not None:
                     return matches.group()
-        matches = re.search(r'(?<=csrftoken=)\w+(?=;)?',
-                            self.__conf['cookie'], re.M | re.I | re.S)
-        if matches is not None:
-            return matches.group()
         raise ValueError('Get token Error')
 
     # 获取v
@@ -202,16 +197,18 @@ class Ingress:
         if not isinstance(login_url, str) or login_url == '':
             raise TypeError(
                 'The login_url must be a string and can not be empty')
-        _ = self.request(login_url)
+        header = {
+            'Origin': 'https://accounts.google.com',
+        }
+        _ = self.request(login_url, None, header)
         if _.status_code != 200:
             raise ValueError('Get Login Url Error')
 
         # url = 'http://127.0.0.1/c.php'
         username_xhr_url = 'https://accounts.google.com/accountLoginInfoXhr'
-        header = {
-            'Origin': 'https://accounts.google.com',
-            'Referer': _.url,
-        }
+        header.update({
+            'Referer': _.url
+        })
         html = bs(_.text, 'lxml')
         data = {
             'Email': self.__conf['email'],

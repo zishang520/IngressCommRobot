@@ -22,11 +22,13 @@ Add the file run.js to the scheduled task, for 15 minutes
 
 #####run service
 
-Required modules: request, SQLite3, tough-cookie-filestore
+Run Version: es6
+Required modules: request, SQLite3, tough-cookie-filestore, cheerio
 
 ```npm
 npm install request --save
 npm install sqlite3 --save
+npm install cheerio --save
 ```
 
 Original 'tough-cookie-filestore' problem, please use my modified 'tough-cookie-filestore'
@@ -40,6 +42,26 @@ run
 ```nodejs
 nodejs run.js
 ```
+
+###Tips: Python3 version
+
+Add the file run.py to the scheduled task, for 15 minutes
+
+#####run service
+
+Run Version: Python3
+Required modules: requests, beautifulsoup4, lxml
+
+```python
+pip3 install requests
+pip3 install beautifulsoup4
+pip3 install lxml
+```
+
+run
+
+```nodejs
+nodejs run.js
 
 ---------------------------------------
 ###Configuration Information:

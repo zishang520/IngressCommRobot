@@ -5,7 +5,8 @@
     var request = require('request'),
         Conffs = require(__dirname + '/Config.class.js'),
         FileCookieStore = require('tough-cookie-filestore'),
-        Sqlite3 = require("sqlite3").verbose();
+        Sqlite3 = require("sqlite3").verbose(),
+        cheerio = require('cheerio');
 
     // 内置函数
     var parse_url = function(str, component) {
@@ -209,8 +210,6 @@
     var Ingress = function(mintime) {
         // 前面的历史记录时间
         this.mintime = isNaN(mintime) ? mintime : 15;
-        // 是否开启保存cookie
-        this.is_cookie = true;
         // 配置文件
         this.conf = this.getConf();
         // 默认头文件信息
@@ -221,8 +220,7 @@
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'zh-CN,zh;q=0.8',
             'Origin': 'https://www.ingress.com',
-            'Referer': 'https://www.ingress.com/intel',
-            'X-CSRFToken': this.getToken()
+            'Referer': 'https://www.ingress.com/intel'
         };
         this.db = new Sqlite3.Database(AGENT_DB);
     };
@@ -234,29 +232,18 @@
                 "url": undefined,
                 "method": 'GET',
                 "headers": header,
-                "timeout": 30,
+                // "timeout": 30,
                 // "proxy": 'http://127.0.0.1:8080',
                 "followAllRedirects": true,
-                "followOriginalHttpMethod": true,
+                "followOriginalHttpMethod": false,
+                "rejectUnauthorized": false,
             };
 
         option.url = url;
 
         // 设置cookie
-        if (this.is_cookie) {
-            var jar = request.jar();
-            this.conf.cookie.split('; ').map(function(item) {
-                if (item !== '') jar.setCookie(item, option.url);
-            });
-            var cookie_jar = request.jar(new FileCookieStore(COOKIE_FILE, { sync: true }));
-            cookie_jar.getCookieString(option.url).split('; ').map(function(item) {
-                if (item !== '') jar.setCookie(item, option.url);
-            });
-            jar.getCookieString(option.url).split('; ').map(function(item) {
-                if (item !== '') cookie_jar.setCookie(item, option.url);
-            });
-            option.jar = cookie_jar;
-        }
+        option.jar = request.jar(new FileCookieStore(COOKIE_FILE, { sync: true }));
+
         if (body !== undefined) {
             option.headers['Content-type'] = header.hasOwnProperty('Content-type') ? header['Content-type'] : 'application/x-www-form-urlencoded';
             option.body = typeof body === 'object' ? http_build_query(body) : body;
@@ -267,8 +254,11 @@
 
     Ingress.prototype.getConf = function() {
         var conf = (new Conffs(CONF_PATH)).get();
-        if (!conf.hasOwnProperty('cookie') || conf.cookie === '') {
-            throw new Error('Conf cookie Not Set');
+        if (!conf.hasOwnProperty('email') || conf.email === '') {
+            throw new Error('Conf email Not Set');
+        }
+        if (!conf.hasOwnProperty('password') || conf.password === '') {
+            throw new Error('Conf password Not Set');
         }
         if (!conf.hasOwnProperty('UA') || conf.UA === '') {
             throw new Error('Conf UA Not Set');
@@ -297,27 +287,95 @@
     Ingress.prototype.getToken = function() {
         var cookie = request.jar(new FileCookieStore(COOKIE_FILE));
         var matchs;
-        // if (matchs = cookie.getCookieString('http://127.0.0.1/').match(/csrftoken=(\w+)(?=;)?/im)) {
         if (matchs = cookie.getCookieString('https://www.ingress.com/intel').match(/csrftoken=(\w+)(?=;)?/im)) {
-            return matchs[1];
-        }
-        if (matchs = this.conf.cookie.match(/csrftoken=(\w+)(?=;)?/im)) {
             return matchs[1];
         }
         throw new Error('Get csrftoken Error');
     };
 
-    Ingress.prototype.getV = function(call) {
+    Ingress.prototype.getV_token = function(call) {
         var cb = typeof call === 'function' ? call : function() {};
-        var preg = function(data) {
+        var preg = (data) => {
             var v = data.match(/<script\stype="text\/javascript"\ssrc="\/jsc\/gen_dashboard_(\w+)\.js"><\/script>/im);
             if (v && v.length == 2) {
-                return v[1];
+                return { "v": v[1], "token": this.getToken() };
             } else {
                 return false;
             }
         };
-        // this.curl('http://127.0.0.1/b.php', undefined, undefined, (err, res, data) => {
+
+        var auto_login = (login_url) => {
+            var header = { 'Origin': 'https://accounts.google.com' };
+            var data = {};
+            data.Email = this.conf.email;
+            var google_login = () => {
+                var password_url = 'https://accounts.google.com/signin/challenge/sl/password';
+
+                data.Page = 'PasswordSeparationSignIn';
+                data.identifiertoken = '';
+                data.identifiertoken_audio = '';
+                data['identifier-captcha-input'] = '';
+                data.Passwd = this.conf.password;
+                data.PersistentCookie = 'yes';
+                this.curl(password_url, data, header, (er, re, dat) => {
+                    if (!er && re.statusCode == 200) {
+                        cb(preg(dat));
+                    } else {
+                        cb(false);
+                    }
+                });
+            };
+            var checkemail = (d) => {
+                var $ = cheerio.load(d);
+                $('input[name]').each((i, item) => {
+                    switch ($(item).attr('name')) {
+                        case 'Page':
+                            data.Page = $(item).val();
+                            break;
+                        case 'service':
+                            data.service = $(item).val();
+                            break;
+                        case 'ltmpl':
+                            data.ltmpl = $(item).val();
+                            break;
+                        case 'continue':
+                            data.continue = $(item).val();
+                            break;
+                        case 'gxf':
+                            data.gxf = $(item).val();
+                            break;
+                        case 'GALX':
+                            data.GALX = $(item).val();
+                            break;
+                        case 'shdf':
+                            data.shdf = $(item).val();
+                            break;
+                        case '_utf8':
+                            data._utf8 = $(item).val();
+                            break;
+                        case 'bgresponse':
+                            data.bgresponse = $(item).val();
+                            break;
+                    }
+                });
+                var username_xhr_url = 'https://accounts.google.com/accountLoginInfoXhr';
+                this.curl(username_xhr_url, data, header, (er, re, dat) => {
+                    if (!er && re.statusCode == 200) {
+                        google_login(dat);
+                    } else {
+                        throw new Error('Check User Email Error');
+                    }
+                });
+            };
+            this.curl(login_url, undefined, header, (er, re, dat) => {
+                if (!er && re.statusCode == 200) {
+                    header.Referer = re.request.uri.href;
+                    checkemail(dat);
+                } else {
+                    throw new Error('Get Login Url Error');
+                }
+            });
+        };
         this.curl('https://www.ingress.com/intel', undefined, undefined, (err, res, data) => {
             if (!err && res.statusCode == 200) {
                 var v;
@@ -325,13 +383,7 @@
                     if (v.length != 2) {
                         cb(false);
                     } else {
-                        this.curl(v[1], undefined, undefined, (er, re, dat) => {
-                            if (!er && re.statusCode == 200) {
-                                cb(preg(dat));
-                            } else {
-                                cb(false);
-                            }
-                        });
+                        auto_login(v[1]);
                     }
                 } else {
                     cb(preg(data));
@@ -369,7 +421,6 @@
         if (!empty(msg)) {
             var time = new Date(),
                 cb = typeof(callback) === 'function' ? callback : function() {},
-                // url = 'http://127.0.0.1/a.php?r',
                 url = 'https://www.ingress.com/r/sendPlext',
                 header = { 'Content-type': 'application/json; charset=UTF-8' },
                 data = '{"message":"' + msg + '","latE6":' + this.conf.latE6 + ',"lngE6":' + this.conf.lngE6 + ',"tab":"faction","v":"' + this.conf.v + '"}';
@@ -422,8 +473,9 @@
             });
         };
         // 开始流程
-        var Start = (v) => {
-            this.conf.v = v;
+        var Start = (g) => {
+            this.conf.v = g.v;
+            this.headers['X-CSRFToken'] = g.token;
             this.getMsg((data) => {
                 if (data) {
                     if (data.hasOwnProperty('result')) {
@@ -440,10 +492,10 @@
                                         st = '',
                                         newagentarr = [];
                                     var unique_agents = array_unique(agents);
-                                        for (var k in unique_agents) {
-                                            st += '@' + unique_agents[k] + '  ';
-                                            newagentarr.push('("' + unique_agents[k] + '", ' + time.getTime() + ')');
-                                        }
+                                    for (var k in unique_agents) {
+                                        st += '@' + unique_agents[k] + '  ';
+                                        newagentarr.push('("' + unique_agents[k] + '", ' + time.getTime() + ')');
+                                    }
                                     if (st !== '' && !empty(newagentarr)) {
                                         this.sendMsg(st + ' ' + this.randMsg(), (data) => {
                                             if (data && data.hasOwnProperty('result') && data.result == 'success') {
@@ -478,12 +530,12 @@
         };
 
         if (tmp.get('time') === null || diff_date(tmp.get('time')) < 0) {
-            this.getV(function(data) {
+            this.getV_token(function(data) {
                 if (data !== false) {
-                    tmp.set({ 'v': data, 'time': (new Date()).getTime() });
+                    tmp.set({ 'v': data.v, 'token': data.token, 'time': (new Date()).getTime() });
                     tmp.save(function(status, e) {
                         if (status !== false) {
-                            Start(tmp.get('v'));
+                            Start(tmp.get());
                         } else {
                             throw e;
                         }
@@ -493,7 +545,7 @@
                 }
             });
         } else {
-            Start(tmp.get('v'));
+            Start(tmp.get());
         }
     };
 
