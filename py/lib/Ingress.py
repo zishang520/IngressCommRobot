@@ -87,8 +87,8 @@ class Ingress(object):
         # 基础参数
         Option = {
             "proxies": {
-                'http': 'http://127.0.0.1:1080',
-                'https': 'http://127.0.0.1:1080',
+                # 'http': 'http://127.0.0.1:1080',
+                # 'https': 'http://127.0.0.1:1080',
             },
             "verify": False,
             "allow_redirects": True,  # 开启自动重定向
