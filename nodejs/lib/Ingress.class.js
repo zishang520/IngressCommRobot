@@ -1,37 +1,18 @@
+/*jshint esversion: 6 */
 (function() {
     'use strict';
 
     // 内置对象
-    var request = require('request'),
+    const request = require('request'),
         Conffs = require(__dirname + '/Config.class.js'),
         FileCookieStore = require('tough-cookie-filestore'),
         Sqlite3 = require("sqlite3").verbose(),
         cheerio = require('cheerio');
 
     // 内置函数
-    var parse_url = function(str, component) {
+    let http_build_query = function(formdata, numericPrefix, argSeparator) {
 
-            var key = ["source", "scheme", "authority", "userInfo", "user", "pass", "host", "port", "relative", "path", "directory", "file", "query", "fragment"],
-                m = new RegExp(['(?:([^:\\/?#]+):)?', '(?:\\/\\/()(?:(?:()(?:([^:@\\/]*):?([^:@\\/]*))?@)?([^:\\/?#]*)(?::(\\d*))?))?', '()', '(?:(()(?:(?:[^?#\\/]*\\/)*)()(?:[^?#]*))(?:\\?([^#]*))?(?:#(.*))?)'].join('')).exec(str),
-                uri = {},
-                i = 14;
-
-            while (i--) {
-                if (m[i]) {
-                    uri[key[i]] = m[i];
-                }
-            }
-
-            if (component) {
-                return uri[component.replace('PHP_URL_', '').toLowerCase()];
-            }
-
-            delete uri.source;
-            return uri;
-        },
-        http_build_query = function(formdata, numericPrefix, argSeparator) {
-
-            var urlencode = function(str) {
+            let urlencode = function(str) {
                 str = (str + '');
                 return encodeURIComponent(str)
                     .replace(/!/g, '%21')
@@ -42,13 +23,13 @@
                     .replace(/%20/g, '+');
             };
 
-            var value,
+            let value,
                 key,
                 tmp = [];
 
-            var _httpBuildQueryHelper = function(key, val, argSeparator) {
-                var k;
-                var tmp = [];
+            let _httpBuildQueryHelper = function(key, val, argSeparator) {
+                let k;
+                let tmp = [];
                 if (val === true) {
                     val = '1';
                 } else if (val === false) {
@@ -80,7 +61,7 @@
                 if (numericPrefix && !isNaN(key)) {
                     key = String(numericPrefix) + key;
                 }
-                var query = _httpBuildQueryHelper(key, value, argSeparator);
+                let query = _httpBuildQueryHelper(key, value, argSeparator);
                 if (query !== '') {
                     tmp.push(query);
                 }
@@ -92,7 +73,7 @@
             return (/boolean|number|string/).test(typeof value);
         },
         merge = function() {
-            var args = Array.prototype.slice.call(arguments),
+            let args = Array.prototype.slice.call(arguments),
                 argl = args.length,
                 arg,
                 retObj = {},
@@ -139,19 +120,19 @@
             return retObj;
         },
         empty = function(mixedVar) {
-            var undef,
+            let undef,
                 key,
                 i,
                 len,
                 emptyValues = [undef, null, false, 0, '', '0'];
 
             for (i = 0, len = emptyValues.length; i < len; i++) {
-                if (mixedVar === emptyValues[i]) {
+                if (mixedlet === emptyValues[i]) {
                     return true;
                 }
             }
 
-            if (typeof mixedVar === 'object') {
+            if (typeof mixedlet === 'object') {
                 for (key in mixedVar) {
                     if (mixedVar.hasOwnProperty(key)) {
                         return false;
@@ -163,7 +144,7 @@
         },
         diff_date = function(e) {
             if (!isNaN(e)) {
-                var a = parseInt(new Date() / 1e5, 10),
+                let a = parseInt(new Date() / 1e5, 10),
                     n = parseInt(e / 1e5, 10);
                 return parseInt((n - a) / 864, 10);
             }
@@ -172,12 +153,12 @@
             return path.replace(/\\/g, '/').replace(/\/[^\/]*\/?$/, '');
         },
         array_unique = function(inputArr) {
-            var key = '',
+            let key = '',
                 tmpArr2 = {},
                 val = '';
 
-            var _arraySearch = function(needle, haystack) {
-                var fkey = '';
+            let _arraySearch = function(needle, haystack) {
+                let fkey = '';
                 for (fkey in haystack) {
                     if (haystack.hasOwnProperty(fkey)) {
                         if ((haystack[fkey] + '') === (needle + '')) {
@@ -201,13 +182,13 @@
         };
 
     // 文件路径
-    var COOKIE_FILE = dirname(__dirname) + '/data/cookie.json',
+    const COOKIE_FILE = dirname(__dirname) + '/data/cookie.json',
         AGENT_DB = dirname(__dirname) + "/data/agent.db",
         CONF_PATH = dirname(__dirname) + '/data/conf.json',
         TMP_FILE = dirname(__dirname) + '/data/tmp.json';
 
     // 创建对象开始
-    var Ingress = function(mintime) {
+    let Ingress = function(mintime) {
         // 前面的历史记录时间
         this.mintime = isNaN(mintime) ? mintime : 15;
         // 配置文件
@@ -226,14 +207,15 @@
     };
 
     Ingress.prototype.curl = function(url, body, headers, call) {
-        var header = typeof headers === 'object' ? merge(this.headers, headers) : this.headers,
+        let header = typeof headers === 'object' ? merge(this.headers, headers) : this.headers,
             callback = typeof call === 'function' ? call : function() {},
             option = {
                 "url": undefined,
                 "method": 'GET',
                 "headers": header,
-                // "timeout": 30,
-                // "proxy": 'http://127.0.0.1:8080',
+                // "timeout": 0,
+                // "proxy": 'http://127.0.0.1:1080',
+                // "strictSSL": false,
                 "followAllRedirects": true,
                 "followOriginalHttpMethod": false,
                 "rejectUnauthorized": false,
@@ -253,7 +235,7 @@
     };
 
     Ingress.prototype.getConf = function() {
-        var conf = (new Conffs(CONF_PATH)).get();
+        let conf = (new Conffs(CONF_PATH)).get();
         if (!conf.hasOwnProperty('email') || conf.email === '') {
             throw new Error('Conf email Not Set');
         }
@@ -285,18 +267,18 @@
     };
 
     Ingress.prototype.getToken = function() {
-        var cookie = request.jar(new FileCookieStore(COOKIE_FILE));
-        var matchs;
-        if (matchs = cookie.getCookieString('https://www.ingress.com/intel').match(/csrftoken=(\w+)(?=;)?/im)) {
+        let cookie = request.jar(new FileCookieStore(COOKIE_FILE));
+        let matchs = cookie.getCookieString('https://www.ingress.com/intel').match(/csrftoken=(\w+)(?=;)?/im);
+        if (matchs && matchs.length == 2) {
             return matchs[1];
         }
         throw new Error('Get csrftoken Error');
     };
 
     Ingress.prototype.getV_token = function(call) {
-        var cb = typeof call === 'function' ? call : function() {};
-        var preg = (data) => {
-            var v = data.match(/<script\stype="text\/javascript"\ssrc="\/jsc\/gen_dashboard_(\w+)\.js"><\/script>/im);
+        let cb = typeof call === 'function' ? call : function() {};
+        let preg = (data) => {
+            let v = data.match(/<script\stype="text\/javascript"\ssrc="\/jsc\/gen_dashboard_(\w+)\.js"><\/script>/im);
             if (v && v.length == 2) {
                 return { "v": v[1], "token": this.getToken() };
             } else {
@@ -304,14 +286,20 @@
             }
         };
 
-        var auto_login = (login_url) => {
-            var header = { 'Origin': 'https://accounts.google.com' };
-            var data = {};
+        let auto_login = (login_url) => {
+            let header = { 'Origin': 'https://accounts.google.com' };
+            let data = {};
             data.Email = this.conf.email;
-            var google_login = () => {
-                var password_url = 'https://accounts.google.com/signin/challenge/sl/password';
 
+            let check_islogin = (body) => {
+                return !((/(登录|login)/i).test(body));
+            };
+            let google_login = () => {
+                let password_url = 'https://accounts.google.com/signin/challenge/sl/password';
+
+                delete data.requestlocation;
                 data.Page = 'PasswordSeparationSignIn';
+                data.pstMsg = '1';
                 data.identifiertoken = '';
                 data.identifiertoken_audio = '';
                 data['identifier-captcha-input'] = '';
@@ -325,9 +313,9 @@
                     }
                 });
             };
-            var checkemail = (d) => {
-                var $ = cheerio.load(d);
-                $('input[name]').each((i, item) => {
+            let checkemail = (d) => {
+                let $ = cheerio.load(d);
+                $('form input[name]').each((i, item) => {
                     switch ($(item).attr('name')) {
                         case 'Page':
                             data.Page = $(item).val();
@@ -356,9 +344,12 @@
                         case 'bgresponse':
                             data.bgresponse = $(item).val();
                             break;
+                        case 'rmShown':
+                            data.rmShown = $(item).val();
+                            break;
                     }
                 });
-                var username_xhr_url = 'https://accounts.google.com/accountLoginInfoXhr';
+                let username_xhr_url = 'https://accounts.google.com/_/signin/v1/lookup';
                 this.curl(username_xhr_url, data, header, (er, re, dat) => {
                     if (!er && re.statusCode == 200) {
                         google_login(dat);
@@ -369,8 +360,14 @@
             };
             this.curl(login_url, undefined, header, (er, re, dat) => {
                 if (!er && re.statusCode == 200) {
-                    header.Referer = re.request.uri.href;
-                    checkemail(dat);
+                    // check is login,jump to intel
+                    if (check_islogin(dat)) {
+                        this.getV_token(cb);
+                    } else {
+                        header.Referer = re.request.uri.href;
+                        data.requestlocation = re.request.uri.href;
+                        checkemail(dat);
+                    }
                 } else {
                     throw new Error('Get Login Url Error');
                 }
@@ -378,8 +375,8 @@
         };
         this.curl('https://www.ingress.com/intel', undefined, undefined, (err, res, data) => {
             if (!err && res.statusCode == 200) {
-                var v;
-                if (v = data.match(/<a\shref="(.*?)"\s*class=".*?"\s*onClick=".*?">Sign\s*in<\/a>/im)) {
+                let v = data.match(/<a\shref="(.*?)"\s*class=".*?"\s*onClick=".*?">Sign\s*in<\/a>/im);
+                if (v) {
                     if (v.length != 2) {
                         cb(false);
                     } else {
@@ -395,7 +392,7 @@
     };
 
     Ingress.prototype.getMsg = function(call) {
-        var cb = typeof call === 'function' ? call : function() {},
+        let cb = typeof call === 'function' ? call : function() {},
             // url = 'http://127.0.0.1/a.php',
             url = 'https://www.ingress.com/r/getPlexts',
             header = { 'Content-type': 'application/json; charset=UTF-8' },
@@ -419,7 +416,7 @@
 
     Ingress.prototype.sendMsg = function(msg, callback) {
         if (!empty(msg)) {
-            var time = new Date(),
+            let time = new Date(),
                 cb = typeof(callback) === 'function' ? callback : function() {},
                 url = 'https://www.ingress.com/r/sendPlext',
                 header = { 'Content-type': 'application/json; charset=UTF-8' },
@@ -443,12 +440,12 @@
     };
 
     Ingress.prototype.auto_send_msg_new_agent = function(call) {
-        var cb = typeof call === 'function' ? call : function() {},
+        let cb = typeof call === 'function' ? call : function() {},
             tmp = new Conffs(TMP_FILE),
             agents = [];
         // 检测是否萌新
-        var CheckNewAgent = function(stmt, value) {
-            var match, agent;
+        let CheckNewAgent = function(stmt, value) {
+            let match, agent;
             if ((match = value.match(/\[secure\]\s+(\w+):\s+has\scompleted\straining\.?/im))) {
                 if (match.length == 2) {
                     agent = match[1];
@@ -473,26 +470,26 @@
             });
         };
         // 开始流程
-        var Start = (g) => {
+        let Start = (g) => {
             this.conf.v = g.v;
             this.headers['X-CSRFToken'] = g.token;
             this.getMsg((data) => {
                 if (data) {
                     if (data.hasOwnProperty('result')) {
-                        var result = data.result;
+                        let result = data.result;
                         try {
                             this.db.serialize(() => {
-                                var stmt = this.db.prepare('SELECT COUNT(`id`) AS num FROM `user` WHERE `agent`=?');
-                                for (var key in result) {
+                                let stmt = this.db.prepare('SELECT COUNT(`id`) AS num FROM `user` WHERE `agent`=?');
+                                for (let key in result) {
                                     CheckNewAgent(stmt, result[key][2].plext.text);
                                 }
                                 // 处理完成执行
                                 stmt.finalize(() => {
-                                    var time = new Date(),
+                                    let time = new Date(),
                                         st = '',
                                         newagentarr = [];
-                                    var unique_agents = array_unique(agents);
-                                    for (var k in unique_agents) {
+                                    let unique_agents = array_unique(agents);
+                                    for (let k in unique_agents) {
                                         st += '@' + unique_agents[k] + '  ';
                                         newagentarr.push('("' + unique_agents[k] + '", ' + time.getTime() + ')');
                                     }
@@ -550,7 +547,7 @@
     };
 
     Ingress.prototype.randMsg = function() {
-        var data;
+        let data;
         if (this.conf.hasOwnProperty('rand_msg') && !empty(this.conf.rand_msg)) {
             data = this.conf.rand_msg;
         } else {

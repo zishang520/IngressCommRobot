@@ -6,7 +6,7 @@
 class Ingress
 {
     // Request Header
-    private $header = array();
+    private $header = [];
     // Whether to open SSL
     public $ssl = true;
     // Load message last time (min)
@@ -39,7 +39,7 @@ class Ingress
         // 获取基础配置信息
         $this->conf = $this->get_conf();
         // 设置标准header
-        $this->header = array(
+        $this->header = [
             'Cache-Control' => 'Cache-Control: max-age=0',
             'User-Agent' => 'User-Agent: ' . $this->conf['UA'],
             'Upgrade-Insecure-Requests' => 'Upgrade-Insecure-Requests: 1',
@@ -47,7 +47,7 @@ class Ingress
             'Accept-Language' => 'Accept-Language: zh-CN,zh;q=0.8',
             'Origin' => 'Origin: https://www.ingress.com',
             'Referer' => 'Referer: https://www.ingress.com/intel',
-        );
+        ];
         $this->usertoken = $this->get_usertoken();
         // 设置csrf
         $this->header['X-CSRFToken'] = 'X-CSRFToken: ' . $this->usertoken['token'];
@@ -65,15 +65,15 @@ class Ingress
      * @param     boolean                  $cookie    [auto save cookie]
      * @return    [type]                              [curl exec data]
      */
-    protected function curl($url, $post = null, $header = array(), $cookie = true)
+    protected function curl($url, $post = null, $header = [], $cookie = true)
     {
         $header = array_merge($this->header, $header);
-        $data = array();
+        $data = [];
         $ch = curl_init();
         curl_setopt_array($ch,
-            array(
+            [
                 CURLOPT_URL => $url, //Request Url
-                CURLOPT_PROXY => 'http://127.0.0.1:1080', // HTTPS could not run
+                // CURLOPT_PROXY => 'http://127.0.0.1:1080', // Please Set CURLOPT_SSL_VERIFYPEER => false
                 CURLOPT_HTTPHEADER => $header, //Set Request Header
                 CURLOPT_AUTOREFERER => true, // Open Auto Referer
                 CURLOPT_FOLLOWLOCATION => true, //Open Auto Location
@@ -82,33 +82,33 @@ class Ingress
                 CURLOPT_RETURNTRANSFER => true, //Set Not Show Response Headers
                 CURLOPT_HEADER => false, //Set Not Output Header
                 CURLOPT_NOBODY => false, //Set Not Show Body
-            )
+            ]
         );
         if ($post !== null) {
             $post = is_array($post) ? http_build_query($post) : $post;
             curl_setopt_array($ch,
-                array(
+                [
                     CURLOPT_POST => true, //Post request
                     CURLOPT_POSTFIELDS => $post,
-                )
+                ]
             );
         }
         if ($this->ssl) {
             // Check whether the domain name is set in the certificate, and whether the match is provided with the host name.
             curl_setopt_array($ch,
-                array(
+                [
                     CURLOPT_SSL_VERIFYPEER => true, // Only trust the certificate issued by CA
                     CURLOPT_CAINFO => ROOT . '/data/cacert.pem', // CA root certificate (used to verify whether the site certificate is issued by the CA)
                     CURLOPT_SSL_VERIFYHOST => 2,
-                )
+                ]
             );
         }
         if ($cookie) {
             curl_setopt_array($ch,
-                array(
+                [
                     CURLOPT_COOKIEJAR => $this->cookie_file, //Storing cookie information
                     CURLOPT_COOKIEFILE => $this->cookie_file, // use cookie
-                )
+                ]
             );
         }
         $data['info'] = curl_exec($ch);
@@ -122,7 +122,7 @@ class Ingress
     protected function get_conf()
     {
         file_exists($this->conf_file) || $this->ShowError('conf.json Not Found');
-        $conf = jsObj::decode(file_get_contents($this->conf_file), true);
+        $conf = JsObj::decode(file_get_contents($this->conf_file), true);
         if (empty($conf['email'])) {
             $this->ShowError('Conf.json Email Not Set');
         }
@@ -184,7 +184,10 @@ class Ingress
             if (count($match) != 2) {
                 return false;
             }
-            $info = $this->auto_login($match[1]);
+            if (!$this->auto_login($match[1])) {
+                return false;
+            }
+            $info = $this->curl($url, null);
             if ($info['status'] != 200) {
                 return false;
             }
@@ -197,23 +200,35 @@ class Ingress
         }
         return $match[1];
     }
+    protected function check_login($body)
+    {
+        return !(preg_match('/(login|登录)/sim',$body));
+    }
     protected function auto_login($login_url)
     {
         $header['Origin'] = 'Origin: https://accounts.google.com';
         $info = $this->curl($login_url, null, $header);
         if ($info['status'] != 200) {
             $this->ShowError('Get Login Url Error');
+            return false;
+        }
+        // jump google login
+        if ($this->check_login($info['info'])) {
+            return true;
         }
         $header['Referer'] = 'Referer: ' . $info['header']['url'];
-
         $data = [
             'Email' => $this->conf['email'],
+            'requestlocation' => $info['header']['url'],
         ];
         $html = new simple_html_dom();
         $html->load($info['info']);
-        $main = $html->find('input[name]');
+        $main = $html->find('form input[name]');
         foreach ($main as $value) {
             switch ($value->name) {
+                case 'bgresponse':
+                    $data['bgresponse'] = $value->value;
+                    break;
                 case 'Page':
                     $data['Page'] = $value->value;
                     break;
@@ -238,25 +253,32 @@ class Ingress
                 case '_utf8':
                     $data['_utf8'] = $value->value;
                     break;
-                case 'bgresponse':
-                    $data['bgresponse'] = $value->value;
+                case 'rmShown':
+                    $data['rmShown'] = $value->value;
                     break;
             }
         }
-        $username_xhr_url = 'https://accounts.google.com/accountLoginInfoXhr';
+        $username_xhr_url = 'https://accounts.google.com/_/signin/v1/lookup';
         $_ = $this->curl($username_xhr_url, $data, $header);
         if ($_['status'] != 200) {
             $this->ShowError('Check User Email Error');
+            return false;
         }
         $password_url = 'https://accounts.google.com/signin/challenge/sl/password';
-
+        unset($data['requestlocation']);
         $data['Page'] = 'PasswordSeparationSignIn';
+        $data['pstMsg'] = '1';
         $data['identifiertoken'] = '';
         $data['identifiertoken_audio'] = '';
         $data['identifier-captcha-input'] = '';
         $data['Passwd'] = $this->conf['password'];
         $data['PersistentCookie'] = 'yes';
-        return $this->curl($password_url, $data, $header);
+        $info = $this->curl($password_url, $data, $header);
+        if ($this->check_login($info['info'])) {
+            return true;
+        }
+        $this->ShowError('Login Error');
+        return false;
     }
 
     protected function get_token()
@@ -328,7 +350,7 @@ class Ingress
         if (empty($arr['result']) || !is_array($arr['result'])) {
             return 'not new message';
         }
-        $newagents = array();
+        $newagents = [];
         foreach ($arr['result'] as $value) {
             if ($agent = $this->check_new_agent($value[2]['plext']['text'])) {
                 array_push($newagents, $agent);
@@ -339,7 +361,7 @@ class Ingress
         }
         $newagents = array_unique($newagents);
         $agents = '';
-        $values = array();
+        $values = [];
         foreach ($newagents as $value) {
             array_push($values, '("' . $agent . '",' . time() . ')');
             $agents .= '@' . $agent . ' ';

@@ -9,10 +9,10 @@ class Config
     // 文件
     private $file;
 
-    public function __construct($file = '')
+    public function __construct($file = null)
     {
-        if ($file == '') {
-            throw new Exception('argment file is empty');
+        if (empty($file)) {
+            throw new Exception('argument file is empty');
         }
         $this->file = $file;
         if (file_exists($file)) {
@@ -30,18 +30,18 @@ class Config
             $this->info = array_merge($this->info, $value);
         } else if (func_num_args() == 2) {
             if (!is_scalar($name) || !is_scalar($value)) {
-                throw new Exception('do you argments is scalar?');
+                throw new Exception('do you arguments is scalar?');
             }
             $this->info[$name] = $value;
         } else {
-            throw new Exception('argments error');
+            throw new Exception('arguments error');
         }
         return true;
     }
     // 删除指定键名
-    public function del($name = '')
+    public function del($name = null)
     {
-        if ($name == '') {
+        if (empty($name)) {
             throw new Exception('name is empty');
         }
         unset($this->info[$name]);
@@ -54,9 +54,9 @@ class Config
         return true;
     }
     // 获取指定键名
-    public function get($name = '')
+    public function get($name = null)
     {
-        if ($name == '') {
+        if (is_null($name)) {
             return $this->info;
         }
         return array_key_exists($name, $this->info) ? $this->info[$name] : null;
@@ -65,6 +65,6 @@ class Config
     public function save()
     {
         $doc = "<?php\nreturn " . var_export($this->info, true) . ";";
-        return (file_put_contents($this->file, $doc, LOCK_EX) === false) ? false : true;
+        return (file_put_contents($this->file, $doc, LOCK_EX) !== false);
     }
 }

@@ -1,3 +1,4 @@
+/*jshint esversion: 6 */
 (function() {
     'use strict';
     /**
@@ -7,15 +8,15 @@
      * @copyright (c)                      ZiShang520 All           Rights Reserved
      * @param     {[type]}                 file_name  [description]
      */
-    var fs = require('fs');
+    const fs = require('fs');
 
-    var Config = function(file_name, option) {
+    let Config = function(file_name, option) {
         this.file_name = file_name || '';
         this.arr = {};
         this.option = typeof option === 'object' ? option : {};
         if (fs.existsSync(this.file_name)) {
             try {
-                var arr = new Function('return (' + fs.readFileSync(this.file_name, 'utf8') + ')')();
+                let arr = new Function('return (' + fs.readFileSync(this.file_name, 'utf8') + ')')();
                 this.arr = (typeof arr === 'object') ? arr : {};
             } catch (err) {
                 if (!(err instanceof SyntaxError)) {
@@ -42,16 +43,11 @@
     };
 
     Config.prototype.del = function(name) {
-        var n = name || '';
-        if (n === '') {
-            return false;
-        }
         return delete this.arr[n];
     };
 
     Config.prototype.get = function(name) {
-        var n = name || '';
-        if (n === '') {
+        if (name === undefined) {
             return this.arr;
         }
         if (name in this.arr) {
@@ -61,8 +57,8 @@
     };
 
     Config.prototype.save = function(call) {
-        var callback = (typeof call === 'function') ? call : function() {};
-        var data = JSON.stringify(this.arr);
+        let callback = (typeof call === 'function') ? call : function() {};
+        let data = JSON.stringify(this.arr);
         if (this.option.hasOwnProperty('sync') && !!this.option.sync) {
             try {
                 fs.writeFileSync(this.file_name, data);
@@ -86,7 +82,7 @@
     };
 
     Config.prototype.merge = function() {
-        var args = Array.prototype.slice.call(arguments),
+        let args = Array.prototype.slice.call(arguments),
             argl = args.length,
             arg,
             retObj = this.arr,
@@ -131,6 +127,7 @@
             }
         }
         return retObj;
+
     };
 
     module.exports = Config;

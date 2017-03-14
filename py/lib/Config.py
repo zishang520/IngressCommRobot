@@ -48,9 +48,9 @@ class Config(object):
             self.__conf.update(args2)
 
     # 获取值
-    def get(self, name=''):
+    def get(self, name=None):
         # 判断是否是字符串并且不为空
-        if isinstance(name, str) and name != '':
+        if isinstance(name, str) and name is not None:
             # 判断是否存在
             if name in self.__conf:
                 return self.__conf[name]
@@ -62,9 +62,9 @@ class Config(object):
         self.__conf.clear()
 
     # 删除
-    def delete(self, name=''):
+    def delete(self, name=None):
         # 判断是否是字符串并且不为空
-        if isinstance(name, str) and name != '':
+        if isinstance(name, str) and name is not None:
             # 判断是否存在
             if name in self.__conf:
                 del self.__conf[name]

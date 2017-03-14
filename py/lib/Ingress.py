@@ -23,7 +23,8 @@ from lib.Config import Config
 __author__ = 'zishang520@gmail.com'
 
 
-class Ingress:
+class Ingress(object):
+
     # 当前路径
     __PARENTDIR__ = os.path.dirname(os.path.dirname(__file__))
     # cookie文件
@@ -86,10 +87,10 @@ class Ingress:
         # 基础参数
         Option = {
             "proxies": {
-                # 'http': 'http://127.0.0.1:1080',
-                # 'https': 'http://127.0.0.1:1080',
+                'http': 'http://127.0.0.1:1080',
+                'https': 'http://127.0.0.1:1080',
             },
-            "verify": True,
+            "verify": False,
             "allow_redirects": True,  # 开启自动重定向
             "timeout": 30,  # 超时时间s
             "headers": self.__headers,  # 请求头
@@ -179,7 +180,9 @@ class Ingress:
                          r.text,  re.M | re.I | re.S)
         # 判断存在并且有值
         if info is not None and len(info.groups()) == 1:
-            r = self.__login(info.group(1))
+            if not self.__login(info.group(1)):
+                return False
+            r = self.request('https://www.ingress.com/intel')
             if r.status_code != 200:
                 return False
         # 匹配v
@@ -190,6 +193,12 @@ class Ingress:
             return info.group(1)
 
         return False
+
+    def __check_islogin(self, body):
+
+        _info = re.search(r'(登录|login)',
+                          body,  re.M | re.I | re.S)
+        return not (_info is not None and len(_info.groups()) == 1)
 
     # Login
     def __login(self, login_url):
@@ -204,14 +213,18 @@ class Ingress:
         if _.status_code != 200:
             raise ValueError('Get Login Url Error')
 
+        if self.__check_islogin(_.text):
+            return True
+
         # url = 'http://127.0.0.1/c.php'
-        username_xhr_url = 'https://accounts.google.com/accountLoginInfoXhr'
+        username_xhr_url = 'https://accounts.google.com/_/signin/v1/lookup'
         header.update({
             'Referer': _.url
         })
         html = bs(_.text, 'lxml')
         data = {
             'Email': self.__conf['email'],
+            'requestlocation': _.url
         }
         for i in html.form.select('input[name]'):
             try:
@@ -233,6 +246,8 @@ class Ingress:
                     data.update({'_utf8': i['value']})
                 elif i['name'] == 'bgresponse':
                     data.update({'bgresponse': i['value']})
+                elif i['name'] == 'rmShown':
+                    data.update({'rmShown': i['value']})
             except KeyError:
                 raise KeyError(
                     'Form Empty')
@@ -242,8 +257,10 @@ class Ingress:
             raise ValueError('Check User Email Error')
 
         password_url = 'https://accounts.google.com/signin/challenge/sl/password'
+        del data['requestlocation']
         data.update({
             'Page': 'PasswordSeparationSignIn',
+            'pstMsg': '1',
             'identifiertoken': '',
             'identifiertoken_audio': '',
             'identifier-captcha-input': '',
@@ -251,7 +268,11 @@ class Ingress:
             'PersistentCookie': 'yes',
         })
 
-        return self.request(password_url, data, header)
+        _t = self.request(password_url, data, header)
+        if self.__check_islogin(_t.text):
+            return True
+
+        raise ValueError('Google Login Error')
 
     # 保存v
     def __get_user_v(self):

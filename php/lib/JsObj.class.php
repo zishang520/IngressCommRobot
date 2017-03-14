@@ -11,7 +11,7 @@ class JsObj
     public function __construct($type, $assoc = false)
     {
         $this->assoc = $assoc;
-        $this->fields = ($type == '[') || $this->assoc ? array() : new stdClass();
+        $this->fields = ($type == '[') || $this->assoc ? [] : new stdClass();
     }
 
     public function add_name(&$text)
@@ -41,7 +41,7 @@ class JsObj
             return $msg;
         }
         // parse a JS initializer
-        $stack = array();
+        $stack = [];
         $text = "";
         $state = self::JSVAL_TEXT;
         $len = strlen($json);
