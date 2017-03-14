@@ -90,7 +90,7 @@ class Ingress(object):
                 # 'http': 'http://127.0.0.1:1080',
                 # 'https': 'http://127.0.0.1:1080',
             },
-            "verify": False,
+            "verify": True,
             "allow_redirects": True,  # 开启自动重定向
             "timeout": 30,  # 超时时间s
             "headers": self.__headers,  # 请求头
