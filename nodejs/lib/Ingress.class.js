@@ -292,7 +292,7 @@
             data.Email = this.conf.email;
 
             let check_islogin = (body) => {
-                return !((/(登录|login)/i).test(body));
+                return !((/(登录|login)/gim).test(body));
             };
             let google_login = () => {
                 let password_url = 'https://accounts.google.com/signin/challenge/sl/password';
