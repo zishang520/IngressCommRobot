@@ -363,8 +363,8 @@ class Ingress
         $agents = '';
         $values = [];
         foreach ($newagents as $value) {
-            array_push($values, '("' . $agent . '",' . time() . ')');
-            $agents .= '@' . $agent . ' ';
+            array_push($values, '("' . $value . '",' . time() . ')');
+            $agents .= '@' . $value . ' ';
         }
         if (($this->send_msg($agents . ' ' . $this->rand_msg())) != 'success') {
             return 'message send error';
