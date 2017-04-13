@@ -1,12 +1,12 @@
-#Ingress Comm Automatically send message
+# Ingress Comm Automatically send message
 
-###Tips: PHP version
+### Tips: PHP version
 
 
 
 Add the file run.php to the scheduled task or service monitor, for 15 minutes
 
-#####run service
+##### run service
 PHP5.4+ needs SQLite3 extensions
 
 run
@@ -16,11 +16,11 @@ php run.php
 ```
 
 ---------------------------------------
-###Tips: Nodejs version
+### Tips: Nodejs version
 
 Add the file run.js to the scheduled task, for 15 minutes
 
-#####run service
+##### run service
 
 Run Version: es6
 Required modules: request, SQLite3, tough-cookie-filestore, cheerio
@@ -43,16 +43,17 @@ run
 nodejs run.js
 ```
 
-###Tips: Python3 version
+### Tips: Python3 version
 
 Add the file run.py to the scheduled task, for 15 minutes
 
-#####run service
+##### run service
 
 Run Version: Python3
 Required modules: requests, beautifulsoup4, lxml
 
 ```python
+pip3 install sqlite3
 pip3 install requests
 pip3 install beautifulsoup4
 pip3 install lxml
@@ -66,6 +67,6 @@ python run.py
 
 
 ---------------------------------------
-###Configuration Information:
+### Configuration Information:
 
 service/data/conf.json.default modify the configuration and renamed conf.json
