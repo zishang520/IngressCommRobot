@@ -202,7 +202,7 @@ class Ingress
     }
     protected function check_login($body)
     {
-        return !(preg_match('/(login|登录)/sim',$body));
+        return !(preg_match('/(login|登录)/sim', $body));
     }
     protected function auto_login($login_url)
     {
@@ -381,7 +381,7 @@ class Ingress
     private function check_new_agent($msg = '')
     {
         $match = '';
-        if (preg_match('/\[secure\]\s+(\w+):\s+has\scompleted\straining\.?/sim', $msg, $match)) {
+        if (preg_match('/\[secure\]\s+(\w+):\s+has\scompleted\straining\./sim', $msg, $match)) {
             if (count($match) != 2) {
                 return false;
             }
@@ -389,7 +389,7 @@ class Ingress
             if (count($match) != 2) {
                 return false;
             }
-            if (!preg_match('/(大家好|我是萌新|新人求带|新人求罩|大佬们求带|求组织|带带我)/sim', $match[0])) {
+            if (!preg_match('/(' . $this->regexp() . ')/sim', $match[0])) {
                 return false;
             }
         } else {
@@ -416,6 +416,16 @@ class Ingress
             $data = $this->conf['rand_msg'];
         }
         return $data[rand(0, count($data) - 1)];
+    }
+    // 加入关键词匹配
+    private function regexp()
+    {
+        if (empty($this->conf['regexp'])) {
+            $data = '大家好|我是萌新|新人求带|新人求罩|大佬们求带|求组织|带带我';
+        } else {
+            $data = implode('|', $this->conf['regexp']);
+        }
+        return $data;
     }
 
     public function ShowError($msg)

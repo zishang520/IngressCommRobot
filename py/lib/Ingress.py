@@ -328,7 +328,7 @@ class Ingress(object):
         if not isinstance(value, str):
             raise TypeError('value must be a string')
         matches = re.search(
-            r'\[secure\]\s+(\w+):\s+has\scompleted\straining\.?', value, re.M | re.I | re.S)
+            r'\[secure\]\s+(\w+):\s+has\scompleted\straining\.', value, re.M | re.I | re.S)
         if matches is not None:
             if len(matches.groups()) != 1:
                 return False
@@ -339,7 +339,7 @@ class Ingress(object):
             if matches is not None:
                 if len(matches.groups()) != 1:
                     return False
-                if re.search(r'(大家好|我是萌新|新人求带|新人求罩|大佬们求带|求组织|带带我)', value, re.M | re.I | re.S) is not None:
+                if re.search(self.regexp(), value, re.M | re.I | re.S) is not None:
                     Agent = matches.group(1)
                 else:
                     return False
@@ -366,6 +366,14 @@ class Ingress(object):
         else:
             data = self.__conf['rand_msg']
         return random.sample(data, 1)[0]
+
+    # 关键词
+    def regexp(self):
+        if 'regexp' not in self.__conf or not isinstance(self.__conf['regexp'], list) or len(self.__conf['regexp']) == 0:
+            data = r'(大家好|我是萌新|新人求带|新人求罩|大佬们求带|求组织|带带我)'
+        else:
+            data = '(' + self.__conf['regexp'].join('|') + ')'
+        return data
 
     # 给萌新发消息啦
     def auto_send_msg_new_agent(self):

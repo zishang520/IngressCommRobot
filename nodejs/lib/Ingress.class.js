@@ -444,9 +444,9 @@
             tmp = new Conffs(TMP_FILE),
             agents = [];
         // 检测是否萌新
-        let CheckNewAgent = function(stmt, value) {
+        let CheckNewAgent = (stmt, value) => {
             let match, agent;
-            if ((match = value.match(/\[secure\]\s+(\w+):\s+has\scompleted\straining\.?/im))) {
+            if ((match = value.match(/\[secure\]\s+(\w+):\s+has\scompleted\straining\./im))) {
                 if (match.length == 2) {
                     agent = match[1];
                 } else {
@@ -454,7 +454,7 @@
                 }
             } else if ((match = value.match(/\[secure\]\s(\w+):\s+.*/im))) {
                 if (match.length == 2) {
-                    if (value.match(/(大家好|我是萌新|新人求带|新人求罩|大佬们求带|求组织|带带我)/im)) {
+                    if (value.match(new RegExp('(' + this.regexp() + ')', 'im'))) {
                         agent = match[1];
                     } else {
                         return false;
@@ -561,5 +561,16 @@
         }
         return data[parseInt(Math.random() * (data.length - 1), 10)];
     };
+
+    Ingress.prototype.regexp = function() {
+        let data;
+        if (this.conf.hasOwnProperty('regexp') && !empty(this.conf.regexp) && Array.isArray(this.conf.regexp)) {
+            data = this.conf.regexp.join('|');
+        } else {
+            data = '大家好|我是萌新|新人求带|新人求罩|大佬们求带|求组织|带带我';
+        }
+        return data;
+    };
+
     module.exports = Ingress;
 })();
