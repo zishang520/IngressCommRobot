@@ -14,7 +14,7 @@ import time
 import random
 
 from urllib.parse import urlparse, quote
-from http.cookiejar import Cookie, MozillaCookieJar
+from http.cookiejar import MozillaCookieJar
 from bs4 import BeautifulSoup as bs
 
 # 自有扩展
@@ -50,27 +50,17 @@ class Ingress(object):
         self.__conf = self.__get_conf()
         # 基础headers头
         self.__headers = {
-            'Cache-Control': 'max-age=0',
+            'Cache-Control': 'no-cache, no-store',
             'User-Agent': self.__conf['UA'],
             'Upgrade-Insecure-Requests': '1',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'zh-CN,zh;q=0.8',
-            'Origin': 'https://www.ingress.com',
-            'Referer': 'https://www.ingress.com/intel',
+            'Accept-Language': 'zh-CN,zh;q=0.8,en;q=0.6',
+            'Accept-encoding': 'gzip',
+            'Dnt': '1',
         }
         self.__conf['v'] = self.__get_user_v()
         self.__headers.update({'X-CSRFToken': self.__get_token()})
         self.__conn = sqlite3.connect(self.__AGENT_DB__)
-
-    # 设置cookie对象，私有
-    def __set_cookie(self, key, val, domain):
-
-        return Cookie(
-            version=0, name=key, value=val, port=None, port_specified=False, domain=domain,
-            domain_specified=False, domain_initial_dot=False, path='/', path_specified=True,
-            secure=False, expires=None, discard=True, comment=None, comment_url=None,
-            rest={'HttpOnly': None}, rfc2109=False
-        )
 
     # 请求
     def request(self, url='', body=None, headers={}):
@@ -87,15 +77,14 @@ class Ingress(object):
         # 基础参数
         Option = {
             "proxies": {
-                # 'http': 'http://127.0.0.1:1080',
-                # 'https': 'http://127.0.0.1:1080',
+                # 'http': 'http://127.0.0.1:8080',
+                # 'https': 'http://127.0.0.1:8080',
             },
             "verify": True,
             "allow_redirects": True,  # 开启自动重定向
             "timeout": 30,  # 超时时间s
             "headers": self.__headers,  # 请求头
         }
-
         # 启用会话模式
         session = requests.session()
         session.cookies = MozillaCookieJar(self.__COOKIE_FILE__)
@@ -206,72 +195,149 @@ class Ingress(object):
         if not isinstance(login_url, str) or login_url == '':
             raise TypeError(
                 'The login_url must be a string and can not be empty')
-        header = {
-            'Origin': 'https://accounts.google.com',
-        }
-        _ = self.request(login_url, None, header)
+        _ = self.request(login_url)
         if _.status_code != 200:
             raise ValueError('Get Login Url Error')
 
+        # 是否已经登录
         if self.__check_islogin(_.text):
             return True
 
-        # url = 'http://127.0.0.1/c.php'
-        username_xhr_url = 'https://accounts.google.com/_/signin/v1/lookup'
+        _login = bs(_.text, 'lxml')
+
+        # 默认跳转地址
+        _JumpUrl = 'https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fappengine.google.com%2F_ah%2Fconflogin%3Fcontinue%3Dhttps%3A%2F%2Fwww.ingress.com%2Fintel&rip=1&nojavascript=1&service=ah&ltmpl=gm'
+        for k in _login.select('meta[http-equiv="refresh"]'):
+            _Info = re.search(r'(?<=url\=).+',
+                              k['content'],  re.M | re.I | re.S)
+            _JumpUrl = _Info.group(0).replace('&amp;', '&')
+
+        header = {
+            'Origin': 'https://accounts.google.com'
+        }
         header.update({
             'Referer': _.url
         })
-        html = bs(_.text, 'lxml')
+
+        _jump_login_page = self.request(_JumpUrl, None, header)
+
+        if _jump_login_page.status_code != 200:
+            raise ValueError('Jump Login Page Error')
+
+        html = bs(_jump_login_page.text, 'lxml')
         data = {
             'Email': self.__conf['email'],
-            'requestlocation': _.url
         }
         for i in html.form.select('input[name]'):
             try:
-                if i['name'] == 'Page':
-                    data.update({'Page': i['value']})
-                elif i['name'] == 'service':
-                    data.update({'service': i['value']})
-                elif i['name'] == 'ltmpl':
-                    data.update({'ltmpl': i['value']})
-                elif i['name'] == 'continue':
-                    data.update({'continue': i['value']})
-                elif i['name'] == 'gxf':
-                    data.update({'gxf': i['value']})
-                elif i['name'] == 'GALX':
-                    data.update({'GALX': i['value']})
-                elif i['name'] == 'shdf':
-                    data.update({'shdf': i['value']})
-                elif i['name'] == '_utf8':
-                    data.update({'_utf8': i['value']})
-                elif i['name'] == 'bgresponse':
-                    data.update({'bgresponse': i['value']})
-                elif i['name'] == 'rmShown':
-                    data.update({'rmShown': i['value']})
+                value = i['value']
             except KeyError:
-                raise KeyError(
-                    'Form Empty')
+                value = ''
 
+            if i['name'] == 'Page':
+                data.update({'Page': value})
+            elif i['name'] == 'GALX':
+                data.update({'GALX': value})
+            elif i['name'] == 'gxf':
+                data.update({'gxf': value})
+            elif i['name'] == 'continue':
+                data.update({'continue': value})
+            elif i['name'] == 'service':
+                data.update({'service': value})
+            elif i['name'] == 'ltmpl':
+                data.update({'ltmpl': value})
+            elif i['name'] == 'rip':
+                data.update({'rip': value})
+            elif i['name'] == 'ProfileInformation':
+                data.update({'ProfileInformation': value})
+            elif i['name'] == 'SessionState':
+                data.update({'SessionState': value})
+            elif i['name'] == '_utf8':
+                data.update({'_utf8': value})
+            elif i['name'] == 'bgresponse':
+                data.update({'bgresponse': value})
+            elif i['name'] == 'identifiertoken':
+                data.update({'identifiertoken': value})
+            elif i['name'] == 'identifiertoken_audio':
+                data.update({'identifiertoken_audio': value})
+            elif i['name'] == 'identifier-captcha-input':
+                data.update({'identifier-captcha-input': value})
+            elif i['name'] == 'signIn':
+                data.update({'signIn': value})
+            elif i['name'] == 'Passwd':
+                data.update({'Passwd': value})
+            elif i['name'] == 'PersistentCookie':
+                data.update({'PersistentCookie': value})
+            elif i['name'] == 'rmShown':
+                data.update({'rmShown': value})
+
+        username_xhr_url = 'https://accounts.google.com/signin/v1/lookup'
+        if 'action' in html.form:
+            username_xhr_url = html.form['action']
+
+        header.update({
+            'Referer': _jump_login_page.url
+        })
+        # 验证邮箱
         _ = self.request(username_xhr_url, data, header)
         if _.status_code != 200:
             raise ValueError('Check User Email Error')
 
-        password_url = 'https://accounts.google.com/signin/challenge/sl/password'
-        del data['requestlocation']
-        data.update({
-            'Page': 'PasswordSeparationSignIn',
-            'pstMsg': '1',
-            'identifiertoken': '',
-            'identifiertoken_audio': '',
-            'identifier-captcha-input': '',
-            'Passwd': self.__conf['password'],
-            'PersistentCookie': 'yes',
-        })
+        _go_login = bs(_.text, 'lxml')
+        login_data = {
+            'Email': self.__conf['email'],
+            'Passwd': self.__conf['password']
+        }
+        for i in _go_login.form.select('input[name]'):
+            try:
+                value = i['value']
+            except KeyError:
+                value = ''
 
-        _t = self.request(password_url, data, header)
+            if i['name'] == 'Page':
+                login_data.update({'Page': value})
+            elif i['name'] == 'GALX':
+                login_data.update({'GALX': value})
+            elif i['name'] == 'gxf':
+                login_data.update({'gxf': value})
+            elif i['name'] == 'continue':
+                login_data.update({'continue': value})
+            elif i['name'] == 'service':
+                login_data.update({'service': value})
+            elif i['name'] == 'ltmpl':
+                login_data.update({'ltmpl': value})
+            elif i['name'] == 'rip':
+                login_data.update({'rip': value})
+            elif i['name'] == 'ProfileInformation':
+                login_data.update({'ProfileInformation': value})
+            elif i['name'] == 'SessionState':
+                login_data.update({'SessionState': value})
+            elif i['name'] == '_utf8':
+                login_data.update({'_utf8': value})
+            elif i['name'] == 'bgresponse':
+                login_data.update({'bgresponse': value})
+            elif i['name'] == 'signIn':
+                login_data.update({'signIn': value})
+            elif i['name'] == 'PersistentCookie':
+                login_data.update({'PersistentCookie': value})
+            elif i['name'] == 'rmShown':
+                login_data.update({'rmShown': value})
+
+        password_url = 'https://accounts.google.com/signin/challenge/sl/password'
+        if 'action' in _go_login.form:
+            password_url = _go_login.form['action']
+
+        # 登录
+        header.update({
+            'Referer': _.url
+        })
+        _t = self.request(password_url, login_data, header)
+
+        if _t.status_code != 200:
+            raise ValueError('Google Login Error')
+
         if self.__check_islogin(_t.text):
             return True
-
         raise ValueError('Google Login Error')
 
     # 保存v
@@ -299,7 +365,8 @@ class Ingress(object):
     def get_msg(self):
         # url = 'http://127.0.0.1/c.php'
         url = 'https://www.ingress.com/r/getPlexts'
-        header = {'Content-type': 'application/json; charset=UTF-8'}
+        header = {'Content-type': 'application/json; charset=UTF-8', 'Origin': 'https://www.ingress.com',
+                  'Referer': 'https://www.ingress.com/intel'}
         data = '{"minLatE6":' + str(self.__conf['minLatE6']) + ',"minLngE6":' + str(self.__conf['minLngE6']) + ',"maxLatE6":' + str(self.__conf['maxLatE6']) + ',"maxLngE6":' + str(self.__conf[
             'maxLngE6']) + ',"minTimestampMs":' + str(int(time.time() * 1000 - 60000 * self.__mintime)) + ',"maxTimestampMs":-1,"tab":"faction","ascendingTimestampOrder":true,"v":"' + self.__conf['v'] + '"}'
         r = self.request(url, data.encode('UTF-8'), header)
@@ -314,7 +381,8 @@ class Ingress(object):
 
         # url = 'http://127.0.0.1/a.php?r'
         url = 'https://www.ingress.com/r/sendPlext'
-        header = {'Content-type': 'application/json; charset=UTF-8'}
+        header = {'Content-type': 'application/json; charset=UTF-8', 'Origin': 'https://www.ingress.com',
+                  'Referer': 'https://www.ingress.com/intel', }
         data = '{"message":"' + msg + '","latE6":' + str(self.__conf['latE6']) + ',"lngE6":' + str(
             self.__conf['lngE6']) + ',"tab":"faction","v":"' + self.__conf['v'] + '"}'
 

@@ -40,13 +40,13 @@ class Ingress
         $this->conf = $this->get_conf();
         // 设置标准header
         $this->header = [
-            'Cache-Control' => 'Cache-Control: max-age=0',
+            'Cache-Control' => 'Cache-control: no-cache, no-store',
             'User-Agent' => 'User-Agent: ' . $this->conf['UA'],
             'Upgrade-Insecure-Requests' => 'Upgrade-Insecure-Requests: 1',
             'Accept' => 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language' => 'Accept-Language: zh-CN,zh;q=0.8',
-            'Origin' => 'Origin: https://www.ingress.com',
-            'Referer' => 'Referer: https://www.ingress.com/intel',
+            'Accept-Language' => 'Accept-Language: zh-CN,zh;q=0.8,en;q=0.6',
+            'Dnt' => 'Dnt: 1',
+            'Accept-encoding' => 'Accept-encoding: gzip'
         ];
         $this->usertoken = $this->get_usertoken();
         // 设置csrf
@@ -73,7 +73,8 @@ class Ingress
         curl_setopt_array($ch,
             [
                 CURLOPT_URL => $url, //Request Url
-                // CURLOPT_PROXY => 'http://127.0.0.1:1080', // Please Set CURLOPT_SSL_VERIFYPEER => false
+                // CURLOPT_PROXYTYPE => CURLPROXY_SOCKS5,
+                // CURLOPT_PROXY => '127.0.0.1:1080', // Please Set CURLOPT_SSL_VERIFYPEER => false
                 CURLOPT_HTTPHEADER => $header, //Set Request Header
                 CURLOPT_AUTOREFERER => true, // Open Auto Referer
                 CURLOPT_FOLLOWLOCATION => true, //Open Auto Location
@@ -82,6 +83,7 @@ class Ingress
                 CURLOPT_RETURNTRANSFER => true, //Set Not Show Response Headers
                 CURLOPT_HEADER => false, //Set Not Output Header
                 CURLOPT_NOBODY => false, //Set Not Show Body
+                CURLOPT_ENCODING => "gzip" // Set Accept-encoding
             ]
         );
         if ($post !== null) {
@@ -200,37 +202,63 @@ class Ingress
         }
         return $match[1];
     }
+
+    // 判断是否需要登录
     protected function check_login($body)
     {
         return !(preg_match('/(login|登录)/sim', $body));
     }
+
+    // 自动登录
     protected function auto_login($login_url)
     {
-        $header['Origin'] = 'Origin: https://accounts.google.com';
-        $info = $this->curl($login_url, null, $header);
-        if ($info['status'] != 200) {
+        // 载入对象
+        $html = new simple_html_dom();
+
+        $header['Referer'] = 'Referer: https://www.ingress.com/intel';
+        $_info = $this->curl($login_url, null, $header);
+        if ($_info['status'] != 200) {
             $this->ShowError('Get Login Url Error');
             return false;
         }
         // jump google login
-        if ($this->check_login($info['info'])) {
+        if ($this->check_login($_info['info'])) {
             return true;
         }
-        $header['Referer'] = 'Referer: ' . $info['header']['url'];
-        $data = [
-            'Email' => $this->conf['email'],
-            'requestlocation' => $info['header']['url'],
-        ];
-        $html = new simple_html_dom();
+        // 获取跳转
+        $html->load($_info['info']);
+        $refresh = $html->find('meta[http-equiv="refresh"]');
+        // 备用
+        $url = 'https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fappengine.google.com%2F_ah%2Fconflogin%3Fcontinue%3Dhttps%3A%2F%2Fwww.ingress.com%2Fintel&rip=1&nojavascript=1&service=ah&ltmpl=gm';
+        foreach ($refresh as $key => $value) {
+            preg_match('/(?<=url\=).+/sim', $value->content, $match);
+            $url = htmlspecialchars_decode($match[0]);
+        }
+        $info = $this->curl($url);
+        if ($info['status'] != 200) {
+            $this->ShowError('Jump Login Error');
+            return false;
+        }
+        // 抓取输入账号页面页面
+        // 解析dom
         $html->load($info['info']);
         $main = $html->find('form input[name]');
+        $data = [
+            'Email' => $this->conf['email'],
+        ];
         foreach ($main as $value) {
             switch ($value->name) {
-                case 'bgresponse':
-                    $data['bgresponse'] = $value->value;
-                    break;
                 case 'Page':
                     $data['Page'] = $value->value;
+                    break;
+                case 'GALX':
+                    $data['GALX'] = $value->value;
+                    break;
+                case 'gxf':
+                    $data['gxf'] = $value->value;
+                    break;
+                case 'continue':
+                    $data['continue'] = $value->value;
                     break;
                 case 'service':
                     $data['service'] = $value->value;
@@ -238,42 +266,117 @@ class Ingress
                 case 'ltmpl':
                     $data['ltmpl'] = $value->value;
                     break;
-                case 'continue':
-                    $data['continue'] = $value->value;
+                case 'rip':
+                    $data['rip'] = $value->value;
                     break;
-                case 'gxf':
-                    $data['gxf'] = $value->value;
+                case 'ProfileInformation':
+                    $data['ProfileInformation'] = $value->value;
                     break;
-                case 'GALX':
-                    $data['GALX'] = $value->value;
-                    break;
-                case 'shdf':
-                    $data['shdf'] = $value->value;
+                case 'SessionState':
+                    $data['SessionState'] = $value->value;
                     break;
                 case '_utf8':
                     $data['_utf8'] = $value->value;
+                    break;
+                case 'bgresponse':
+                    $data['bgresponse'] = $value->value;
+                    break;
+                case 'identifiertoken':
+                    $data['identifiertoken'] = $value->value;
+                    break;
+                case 'identifiertoken_audio':
+                    $data['identifiertoken_audio'] = $value->value;
+                    break;
+                case 'identifier-captcha-input':
+                    $data['identifier-captcha-input'] = $value->value;
+                    break;
+                case 'signIn':
+                    $data['signIn'] = $value->value;
+                    break;
+                case 'Passwd':
+                    $data['Passwd'] = $value->value;
+                    break;
+                case 'PersistentCookie':
+                    $data['PersistentCookie'] = $value->value;
                     break;
                 case 'rmShown':
                     $data['rmShown'] = $value->value;
                     break;
             }
         }
-        $username_xhr_url = 'https://accounts.google.com/_/signin/v1/lookup';
+        $form = $html->find('form[action]');
+        // 备用
+        $username_xhr_url = 'https://accounts.google.com/signin/v1/lookup';
+        foreach ($form as $key => $value) {
+            $username_xhr_url = $value->action;
+        }
+        $header['Referer'] = 'Referer: ' . $info['header']['url'];
         $_ = $this->curl($username_xhr_url, $data, $header);
         if ($_['status'] != 200) {
             $this->ShowError('Check User Email Error');
             return false;
         }
+        // 登录
+        $html->load($_['info']);
+        $login_page = $html->find('form input[name]');
+        $login_data = [
+            'Email' => $this->conf['email'],
+            'Passwd' => $this->conf['password'],
+        ];
+        foreach ($login_page as $value) {
+            switch ($value->name) {
+                case 'Page':
+                    $login_data['Page'] = $value->value;
+                    break;
+                case 'GALX':
+                    $login_data['GALX'] = $value->value;
+                    break;
+                case 'gxf':
+                    $login_data['gxf'] = $value->value;
+                    break;
+                case 'continue':
+                    $login_data['continue'] = $value->value;
+                    break;
+                case 'service':
+                    $login_data['service'] = $value->value;
+                    break;
+                case 'ltmpl':
+                    $login_data['ltmpl'] = $value->value;
+                    break;
+                case 'rip':
+                    $login_data['rip'] = $value->value;
+                    break;
+                case 'ProfileInformation':
+                    $login_data['ProfileInformation'] = $value->value;
+                    break;
+                case 'SessionState':
+                    $login_data['SessionState'] = $value->value;
+                    break;
+                case '_utf8':
+                    $login_data['_utf8'] = $value->value;
+                    break;
+                case 'bgresponse':
+                    $login_data['bgresponse'] = $value->value;
+                    break;
+                case 'signIn':
+                    $login_data['signIn'] = $value->value;
+                    break;
+                case 'PersistentCookie':
+                    $login_data['PersistentCookie'] = $value->value;
+                    break;
+                case 'rmShown':
+                    $login_data['rmShown'] = $value->value;
+                    break;
+            }
+        }
+        $form = $html->find('form[action]');
+        // 备用
         $password_url = 'https://accounts.google.com/signin/challenge/sl/password';
-        unset($data['requestlocation']);
-        $data['Page'] = 'PasswordSeparationSignIn';
-        $data['pstMsg'] = '1';
-        $data['identifiertoken'] = '';
-        $data['identifiertoken_audio'] = '';
-        $data['identifier-captcha-input'] = '';
-        $data['Passwd'] = $this->conf['password'];
-        $data['PersistentCookie'] = 'yes';
-        $info = $this->curl($password_url, $data, $header);
+        foreach ($form as $key => $value) {
+            $password_url = $value->action;
+        }
+        $header['Referer'] = 'Referer: ' . $_['header']['url'];
+        $info = $this->curl($password_url, $login_data, $header);
         if ($this->check_login($info['info'])) {
             return true;
         }
@@ -298,6 +401,8 @@ class Ingress
     {
         $url = 'https://www.ingress.com/r/getPlexts';
         $header['content-type'] = 'content-type: application/json; charset=UTF-8';
+        $header['Origin'] = 'Origin: https://www.ingress.com';
+        $header['Referer'] = 'Referer: https://www.ingress.com/intel';
         $data = '{"minLatE6":' . $this->conf['minLatE6'] . ',"minLngE6":' . $this->conf['minLngE6'] . ',"maxLatE6":' . $this->conf['maxLatE6'] . ',"maxLngE6":' . $this->conf['maxLngE6'] . ',"minTimestampMs":' . strval(bcsub(microtime(true) * 1000, 60000 * $this->mintime)) . ',"maxTimestampMs":-1,"tab":"faction","ascendingTimestampOrder":true,"v":"' . $this->usertoken['v'] . '"}';
         $info = $this->curl($url, $data, $header);
         if ($info['status'] != 200) {
@@ -311,6 +416,8 @@ class Ingress
     {
         $url = 'https://www.ingress.com/r/sendPlext';
         $header['content-type'] = 'content-type: application/json; charset=UTF-8';
+        $header['Origin'] = 'Origin: https://www.ingress.com';
+        $header['Referer'] = 'Referer: https://www.ingress.com/intel';
         $data = '{"message":"' . $msg . '","latE6":' . $this->conf['latE6'] . ',"lngE6":' . $this->conf['lngE6'] . ',"tab":"faction","v":"' . $this->usertoken['v'] . '"}';
         $info = $this->curl($url, $data, $header);
         if ($info['status'] != 200) {
@@ -329,6 +436,8 @@ class Ingress
     {
         $url = 'https://www.ingress.com/r/redeemReward';
         $header['content-type'] = 'content-type: application/json; charset=UTF-8';
+        $header['Origin'] = 'Origin: https://www.ingress.com';
+        $header['Referer'] = 'Referer: https://www.ingress.com/intel';
         $data = '{"passcode":"' . $code . '","v":"' . $this->usertoken['v'] . '"}';
         $info = $this->curl($url, $data, $header);
         if ($info['status'] != 200) {
