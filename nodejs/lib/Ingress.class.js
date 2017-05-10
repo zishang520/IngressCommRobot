@@ -200,7 +200,6 @@
             'Upgrade-Insecure-Requests': '1',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'zh-CN,zh;q=0.8',
-            'Origin': 'https://www.ingress.com',
             'Referer': 'https://www.ingress.com/intel'
         };
         this.db = new Sqlite3.Database(AGENT_DB);
@@ -214,7 +213,7 @@
                 "method": 'GET',
                 "headers": header,
                 // "timeout": 0,
-                // "proxy": 'http://127.0.0.1:1080',
+                // "proxy": 'http://127.0.0.1:8080',
                 // "strictSSL": false,
                 "followAllRedirects": true,
                 "followOriginalHttpMethod": false,
@@ -287,27 +286,75 @@
         };
 
         let auto_login = (login_url) => {
-            let header = { 'Origin': 'https://accounts.google.com' };
-            let data = {};
+            let header = {};
+            let data = {},
+                login_data = {};
             data.Email = this.conf.email;
+            login_data.Email = this.conf.email;
+            login_data.Passwd = this.conf.password;
 
             let check_islogin = (body) => {
                 return !((/(登录|login)/gim).test(body));
             };
-            let google_login = () => {
+            let google_login = (data) => {
+                let $ = cheerio.load(data);
+                $('form input[name]').each((i, item) => {
+                    switch ($(item).attr('name')) {
+                        case 'Page':
+                            login_data['Page'] = $(item).val();
+                            break;
+                        case 'GALX':
+                            login_data['GALX'] = $(item).val();
+                            break;
+                        case 'gxf':
+                            login_data['gxf'] = $(item).val();
+                            break;
+                        case 'continue':
+                            login_data['continue'] = $(item).val();
+                            break;
+                        case 'service':
+                            login_data['service'] = $(item).val();
+                            break;
+                        case 'ltmpl':
+                            login_data['ltmpl'] = $(item).val();
+                            break;
+                        case 'rip':
+                            login_data['rip'] = $(item).val();
+                            break;
+                        case 'ProfileInformation':
+                            login_data['ProfileInformation'] = $(item).val();
+                            break;
+                        case 'SessionState':
+                            login_data['SessionState'] = $(item).val();
+                            break;
+                        case '_utf8':
+                            login_data['_utf8'] = $(item).val();
+                            break;
+                        case 'bgresponse':
+                            login_data['bgresponse'] = $(item).val();
+                            break;
+                        case 'signIn':
+                            login_data['signIn'] = $(item).val();
+                            break;
+                        case 'PersistentCookie':
+                            login_data['PersistentCookie'] = $(item).val();
+                            break;
+                        case 'rmShown':
+                            login_data['rmShown'] = $(item).val();
+                            break;
+                    }
+                });
                 let password_url = 'https://accounts.google.com/signin/challenge/sl/password';
-
-                delete data.requestlocation;
-                data.Page = 'PasswordSeparationSignIn';
-                data.pstMsg = '1';
-                data.identifiertoken = '';
-                data.identifiertoken_audio = '';
-                data['identifier-captcha-input'] = '';
-                data.Passwd = this.conf.password;
-                data.PersistentCookie = 'yes';
-                this.curl(password_url, data, header, (er, re, dat) => {
+                $('form[action]').each((i, item) => {
+                    password_url = $(item).attr('action');
+                });
+                this.curl(password_url, login_data, header, (er, re, dat) => {
                     if (!er && re.statusCode == 200) {
-                        cb(preg(dat));
+                        if (check_islogin(dat)) {
+                            this.getV_token(cb);
+                        } else {
+                            cb(false);
+                        }
                     } else {
                         cb(false);
                     }
@@ -318,43 +365,86 @@
                 $('form input[name]').each((i, item) => {
                     switch ($(item).attr('name')) {
                         case 'Page':
-                            data.Page = $(item).val();
-                            break;
-                        case 'service':
-                            data.service = $(item).val();
-                            break;
-                        case 'ltmpl':
-                            data.ltmpl = $(item).val();
-                            break;
-                        case 'continue':
-                            data.continue = $(item).val();
-                            break;
-                        case 'gxf':
-                            data.gxf = $(item).val();
+                            data['Page'] = $(item).val();
                             break;
                         case 'GALX':
-                            data.GALX = $(item).val();
+                            data['GALX'] = $(item).val();
                             break;
-                        case 'shdf':
-                            data.shdf = $(item).val();
+                        case 'gxf':
+                            data['gxf'] = $(item).val();
+                            break;
+                        case 'continue':
+                            data['continue'] = $(item).val();
+                            break;
+                        case 'service':
+                            data['service'] = $(item).val();
+                            break;
+                        case 'ltmpl':
+                            data['ltmpl'] = $(item).val();
+                            break;
+                        case 'rip':
+                            data['rip'] = $(item).val();
+                            break;
+                        case 'ProfileInformation':
+                            data['ProfileInformation'] = $(item).val();
+                            break;
+                        case 'SessionState':
+                            data['SessionState'] = $(item).val();
                             break;
                         case '_utf8':
-                            data._utf8 = $(item).val();
+                            data['_utf8'] = $(item).val();
                             break;
                         case 'bgresponse':
-                            data.bgresponse = $(item).val();
+                            data['bgresponse'] = $(item).val();
+                            break;
+                        case 'identifiertoken':
+                            data['identifiertoken'] = $(item).val();
+                            break;
+                        case 'identifiertoken_audio':
+                            data['identifiertoken_audio'] = $(item).val();
+                            break;
+                        case 'identifier-captcha-input':
+                            data['identifier-captcha-input'] = $(item).val();
+                            break;
+                        case 'signIn':
+                            data['signIn'] = $(item).val();
+                            break;
+                        case 'Passwd':
+                            data['Passwd'] = $(item).val();
+                            break;
+                        case 'PersistentCookie':
+                            data['PersistentCookie'] = $(item).val();
                             break;
                         case 'rmShown':
-                            data.rmShown = $(item).val();
+                            data['rmShown'] = $(item).val();
                             break;
                     }
                 });
-                let username_xhr_url = 'https://accounts.google.com/_/signin/v1/lookup';
+                let username_xhr_url = 'https://accounts.google.com/signin/v1/lookup';
+                $('form[action]').each((i, item) => {
+                    username_xhr_url = $(item).attr('action');
+                });
                 this.curl(username_xhr_url, data, header, (er, re, dat) => {
                     if (!er && re.statusCode == 200) {
+                        header.Referer = re.request.uri.href;
                         google_login(dat);
                     } else {
                         throw new Error('Check User Email Error');
+                    }
+                });
+            };
+            let jump_login_page = (data) => {
+                let $ = cheerio.load(data);
+                let $url = 'https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fappengine.google.com%2F_ah%2Fconflogin%3Fcontinue%3Dhttps%3A%2F%2Fwww.ingress.com%2Fintel&rip=1&nojavascript=1&service=ah&ltmpl=gm';
+                $('meta[http-equiv="refresh"]').each((i, item) => {
+                    $url = $(item).attr('content').match(/url\=.+/gim)[0].replace('url=', '').replace('&amp;', '&');
+                });
+                this.curl($url, undefined, header, (er, re, dat) => {
+                    if (!er && re.statusCode == 200) {
+                        header.Referer = re.request.uri.href;
+                        checkemail(dat);
+                    } else {
+                        throw new Error('Jump Login Page Error');
                     }
                 });
             };
@@ -365,8 +455,7 @@
                         this.getV_token(cb);
                     } else {
                         header.Referer = re.request.uri.href;
-                        data.requestlocation = re.request.uri.href;
-                        checkemail(dat);
+                        jump_login_page(dat);
                     }
                 } else {
                     throw new Error('Get Login Url Error');
