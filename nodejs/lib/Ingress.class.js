@@ -72,53 +72,6 @@
         is_scalar = function(value) {
             return (/boolean|number|string/).test(typeof value);
         },
-        merge = function() {
-            let args = Array.prototype.slice.call(arguments),
-                argl = args.length,
-                arg,
-                retObj = {},
-                k = '',
-                argil = 0,
-                j = 0,
-                i = 0,
-                ct = 0,
-                toStr = Object.prototype.toString,
-                retArr = true;
-            for (i = 0; i < argl; i++) {
-                if (toStr.call(args[i]) !== '[object Array]') {
-                    retArr = false;
-                    break;
-                }
-            }
-
-            if (retArr) {
-                retArr = [];
-                for (i = 0; i < argl; i++) {
-                    retArr = retArr.concat(args[i]);
-                }
-                return retArr;
-            }
-
-            for (i = 0, ct = 0; i < argl; i++) {
-                arg = args[i];
-                if (toStr.call(arg) === '[object Array]') {
-                    for (j = 0, argil = arg.length; j < argil; j++) {
-                        retObj[ct++] = arg[j];
-                    }
-                } else {
-                    for (k in arg) {
-                        if (arg.hasOwnProperty(k)) {
-                            if (parseInt(k, 10) + '' === k) {
-                                retObj[ct++] = arg[k];
-                            } else {
-                                retObj[k] = arg[k];
-                            }
-                        }
-                    }
-                }
-            }
-            return retObj;
-        },
         empty = function(mixedVar) {
             let undef,
                 key,
@@ -151,34 +104,6 @@
         },
         dirname = function(path) {
             return path.replace(/\\/g, '/').replace(/\/[^\/]*\/?$/, '');
-        },
-        array_unique = function(inputArr) {
-            let key = '',
-                tmpArr2 = {},
-                val = '';
-
-            let _arraySearch = function(needle, haystack) {
-                let fkey = '';
-                for (fkey in haystack) {
-                    if (haystack.hasOwnProperty(fkey)) {
-                        if ((haystack[fkey] + '') === (needle + '')) {
-                            return fkey;
-                        }
-                    }
-                }
-                return false;
-            };
-
-            for (key in inputArr) {
-                if (inputArr.hasOwnProperty(key)) {
-                    val = inputArr[key];
-                    if (_arraySearch(val, tmpArr2) === false) {
-                        tmpArr2[key] = val;
-                    }
-                }
-            }
-
-            return tmpArr2;
         };
 
     // 文件路径
@@ -206,14 +131,14 @@
     };
 
     Ingress.prototype.curl = function(url, body, headers, call) {
-        let header = typeof headers === 'object' ? merge(this.headers, headers) : this.headers,
+        let header = typeof headers === 'object' ? Object.assign(this.headers, headers) : this.headers,
             callback = typeof call === 'function' ? call : function() {},
             option = {
                 "url": undefined,
                 "method": 'GET',
                 "headers": header,
                 // "timeout": 0,
-                // "proxy": 'http://127.0.0.1:8080',
+                // "proxy": 'http://127.0.0.1:1080',
                 // "strictSSL": false,
                 "followAllRedirects": true,
                 "followOriginalHttpMethod": false,
@@ -301,46 +226,46 @@
                 $('form input[name]').each((i, item) => {
                     switch ($(item).attr('name')) {
                         case 'Page':
-                            login_data['Page'] = $(item).val();
+                            login_data.Page = $(item).val();
                             break;
                         case 'GALX':
-                            login_data['GALX'] = $(item).val();
+                            login_data.GALX = $(item).val();
                             break;
                         case 'gxf':
-                            login_data['gxf'] = $(item).val();
+                            login_data.gxf = $(item).val();
                             break;
                         case 'continue':
-                            login_data['continue'] = $(item).val();
+                            login_data.continue = $(item).val();
                             break;
                         case 'service':
-                            login_data['service'] = $(item).val();
+                            login_data.service = $(item).val();
                             break;
                         case 'ltmpl':
-                            login_data['ltmpl'] = $(item).val();
+                            login_data.ltmpl = $(item).val();
                             break;
                         case 'rip':
-                            login_data['rip'] = $(item).val();
+                            login_data.rip = $(item).val();
                             break;
                         case 'ProfileInformation':
-                            login_data['ProfileInformation'] = $(item).val();
+                            login_data.ProfileInformation = $(item).val();
                             break;
                         case 'SessionState':
-                            login_data['SessionState'] = $(item).val();
+                            login_data.SessionState = $(item).val();
                             break;
                         case '_utf8':
-                            login_data['_utf8'] = $(item).val();
+                            login_data._utf8 = $(item).val();
                             break;
                         case 'bgresponse':
-                            login_data['bgresponse'] = $(item).val();
+                            login_data.bgresponse = $(item).val();
                             break;
                         case 'signIn':
-                            login_data['signIn'] = $(item).val();
+                            login_data.signIn = $(item).val();
                             break;
                         case 'PersistentCookie':
-                            login_data['PersistentCookie'] = $(item).val();
+                            login_data.PersistentCookie = $(item).val();
                             break;
                         case 'rmShown':
-                            login_data['rmShown'] = $(item).val();
+                            login_data.rmShown = $(item).val();
                             break;
                     }
                 });
@@ -365,58 +290,58 @@
                 $('form input[name]').each((i, item) => {
                     switch ($(item).attr('name')) {
                         case 'Page':
-                            data['Page'] = $(item).val();
+                            data.Page = $(item).val();
                             break;
                         case 'GALX':
-                            data['GALX'] = $(item).val();
+                            data.GALX = $(item).val();
                             break;
                         case 'gxf':
-                            data['gxf'] = $(item).val();
+                            data.gxf = $(item).val();
                             break;
                         case 'continue':
-                            data['continue'] = $(item).val();
+                            data.continue = $(item).val();
                             break;
                         case 'service':
-                            data['service'] = $(item).val();
+                            data.service = $(item).val();
                             break;
                         case 'ltmpl':
-                            data['ltmpl'] = $(item).val();
+                            data.ltmpl = $(item).val();
                             break;
                         case 'rip':
-                            data['rip'] = $(item).val();
+                            data.rip = $(item).val();
                             break;
                         case 'ProfileInformation':
-                            data['ProfileInformation'] = $(item).val();
+                            data.ProfileInformation = $(item).val();
                             break;
                         case 'SessionState':
-                            data['SessionState'] = $(item).val();
+                            data.SessionState = $(item).val();
                             break;
                         case '_utf8':
-                            data['_utf8'] = $(item).val();
+                            data._utf8 = $(item).val();
                             break;
                         case 'bgresponse':
-                            data['bgresponse'] = $(item).val();
+                            data.bgresponse = $(item).val();
                             break;
                         case 'identifiertoken':
-                            data['identifiertoken'] = $(item).val();
+                            data.identifiertoken = $(item).val();
                             break;
                         case 'identifiertoken_audio':
-                            data['identifiertoken_audio'] = $(item).val();
+                            data.identifiertoken_audio = $(item).val();
                             break;
                         case 'identifier-captcha-input':
                             data['identifier-captcha-input'] = $(item).val();
                             break;
                         case 'signIn':
-                            data['signIn'] = $(item).val();
+                            data.signIn = $(item).val();
                             break;
                         case 'Passwd':
-                            data['Passwd'] = $(item).val();
+                            data.Passwd = $(item).val();
                             break;
                         case 'PersistentCookie':
-                            data['PersistentCookie'] = $(item).val();
+                            data.PersistentCookie = $(item).val();
                             break;
                         case 'rmShown':
-                            data['rmShown'] = $(item).val();
+                            data.rmShown = $(item).val();
                             break;
                     }
                 });
@@ -482,7 +407,6 @@
 
     Ingress.prototype.getMsg = function(call) {
         let cb = typeof call === 'function' ? call : function() {},
-            // url = 'http://127.0.0.1/a.php',
             url = 'https://www.ingress.com/r/getPlexts',
             header = { 'Content-type': 'application/json; charset=UTF-8' },
             data = '{"minLatE6":' + this.conf.minLatE6 + ',"minLngE6":' + this.conf.minLngE6 + ',"maxLatE6":' + this.conf.maxLatE6 + ',"maxLngE6":' + this.conf.maxLngE6 + ',"minTimestampMs":' + ((new Date()).getTime() - 60000 * this.mintime) + ',"maxTimestampMs":-1,"tab":"faction","ascendingTimestampOrder":true,"v":"' + this.conf.v + '"}';
@@ -531,7 +455,7 @@
     Ingress.prototype.auto_send_msg_new_agent = function(call) {
         let cb = typeof call === 'function' ? call : function() {},
             tmp = new Conffs(TMP_FILE),
-            agents = [];
+            agents = new Set();
         // 检测是否萌新
         let CheckNewAgent = (stmt, value) => {
             let match, agent;
@@ -554,7 +478,7 @@
             }
             stmt.get(agent, (err, row) => {
                 if (row.hasOwnProperty('num') && row.num === 0) {
-                    agents.push(agent);
+                    agents.add(agent);
                 }
             });
         };
@@ -569,20 +493,19 @@
                         try {
                             this.db.serialize(() => {
                                 let stmt = this.db.prepare('SELECT COUNT(`id`) AS num FROM `user` WHERE `agent`=?');
-                                for (let key in result) {
-                                    CheckNewAgent(stmt, result[key][2].plext.text);
-                                }
+                                result.forEach(function(item){
+                                    CheckNewAgent(stmt, item[2].plext.text);
+                                });
                                 // 处理完成执行
                                 stmt.finalize(() => {
                                     let time = new Date(),
                                         st = '',
                                         newagentarr = [];
-                                    let unique_agents = array_unique(agents);
-                                    for (let k in unique_agents) {
-                                        st += '@' + unique_agents[k] + '  ';
-                                        newagentarr.push('("' + unique_agents[k] + '", ' + time.getTime() + ')');
-                                    }
-                                    if (st !== '' && !empty(newagentarr)) {
+                                    agents.forEach(function(item){
+                                        st += '@' + item + '  ';
+                                        newagentarr.push('("' + item + '", ' + time.getTime() + ')');
+                                    });
+                                    if (st.length > 0 && !empty(newagentarr)) {
                                         this.sendMsg(st + ' ' + this.randMsg(), (data) => {
                                             if (data && data.hasOwnProperty('result') && data.result == 'success') {
                                                 this.db.run("INSERT INTO `user` (`agent`, `createtime`) VALUES " + newagentarr.join(','), function(err) {
