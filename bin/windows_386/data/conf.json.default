@@ -1,0 +1,35 @@
+{
+    "//": "Socket5 proxy address, to the wall of the user",
+    "proxy": "127.0.0.1:1080",
+    "//": "Your email account",
+    "email": "",
+    "//": "Your email password",
+    "password": "",
+    "//": "Your browser UserAgent(F12 can view)",
+    "UA": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.62 Safari/537.36",
+    "//": "max Lat",
+    "maxLatE6": 31247589,
+    "//": "max Lng",
+    "maxLngE6": 106024246,
+    "//": "min Lat",
+    "minLatE6": 30066271,
+    "//": "min Lng",
+    "minLngE6": 102126846,
+    "//": "Send message lat",
+    "latE6": 30663410,
+    "//": "Send message lng",
+    "lngE6": 104072204,
+    "//": "Random message list",
+    "rand_msg": [
+        " 嗨嗨未来的胖友你萌吼 (´///ω/// `)欢迎来到异世界的结界处 新的胖友在这里等着你一起撸串次火锅冒菜钵钵鸡蛋烘糕 吞并整个宇宙 QQ群：欢迎加入成蓝萌新群，群号码：645355081 TG群：http://t.cn/RSq1YFB"
+    ],
+    "//": "Additional matching keywords",
+    "regexp": [
+        "我是萌新",
+        "有人吗",
+        "大家好",
+        "有蓝军",
+        "我是新人",
+        "求带"
+    ]
+}
